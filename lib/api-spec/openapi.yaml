@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: airports
+    description: BTS on-time performance for selected departure airports
 paths:
   /healthz:
     get:
@@ -24,7 +26,143 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /airports:
+    get:
+      operationId: listAirports
+      tags: [airports]
+      summary: List the supported departure airports
+      responses:
+        "200":
+          description: Supported airport codes and names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Airport"
+  /data-status:
+    get:
+      operationId: getDataStatus
+      tags: [airports]
+      summary: Dataset source and imported date coverage
+      responses:
+        "200":
+          description: Current SQL dataset coverage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataStatus"
+  /delays/summary:
+    get:
+      operationId: getDelaySummary
+      tags: [airports]
+      summary: Key flight and delay metrics for an airport
+      parameters:
+        - $ref: "#/components/parameters/Airport"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Airport summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DelaySummary"
+  /delays/daily:
+    get:
+      operationId: getDailyDelays
+      tags: [airports]
+      summary: Daily flight delay trend
+      parameters:
+        - $ref: "#/components/parameters/Airport"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Daily data in chronological order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyDelay"
+  /delays/carriers:
+    get:
+      operationId: getCarrierDelays
+      tags: [airports]
+      summary: Airline delay comparison for an airport
+      parameters:
+        - $ref: "#/components/parameters/Airport"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Carriers ordered by flight volume
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CarrierDelay"
+  /delays/causes:
+    get:
+      operationId: getDelayCauses
+      tags: [airports]
+      summary: BTS-reported causes of arrival delays
+      parameters:
+        - $ref: "#/components/parameters/Airport"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Total attributed minutes by cause
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DelayCause"
+  /delays/weekday:
+    get:
+      operationId: getWeekdayDelays
+      tags: [airports]
+      summary: Departure delays grouped by day of week
+      parameters:
+        - $ref: "#/components/parameters/Airport"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Monday through Sunday
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WeekdayDelay"
 components:
+  parameters:
+    Airport:
+      in: query
+      name: airport
+      required: true
+      schema:
+        type: string
+        enum: [ATL, DFW, DEN, ORD, LAX, JFK, LGA, EWR, SFO, SEA, CLT, PHX, MIA, PHL, DCA, IAD, IAH, DTW, MSP, SLC, BOS, PDX, ANC, HNL, DAL, HOU, MDW, BWI, LAS, MCO, FLL, SJU]
+    From:
+      in: query
+      name: from
+      required: false
+      schema:
+        type: string
+        pattern: '^\d{4}-\d{2}-\d{2}$'
+    To:
+      in: query
+      name: to
+      required: false
+      schema:
+        type: string
+        pattern: '^\d{4}-\d{2}-\d{2}$'
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +171,75 @@ components:
           type: string
       required:
         - status
+    Airport:
+      type: object
+      required: [code, name, city]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        city: { type: string }
+    DataStatus:
+      type: object
+      required: [sourceUrl, firstDate, lastDate, totalFlights, loadedMonths, importing]
+      properties:
+        sourceUrl: { type: string }
+        firstDate: { type: ["string", "null"] }
+        lastDate: { type: ["string", "null"] }
+        totalFlights: { type: integer }
+        loadedMonths:
+          type: array
+          items: { type: string }
+        importing: { type: boolean }
+    DelaySummary:
+      type: object
+      required: [airport, from, to, flights, arrivalFlights, delayedDepartures, cancelledFlights, divertedFlights, onTimeDeparturePct, cancellationPct, avgDepartureDelayMinutes, avgArrivalDelayMinutes]
+      properties:
+        airport: { type: string }
+        from: { type: ["string", "null"] }
+        to: { type: ["string", "null"] }
+        flights: { type: integer }
+        arrivalFlights: { type: integer }
+        delayedDepartures: { type: integer }
+        cancelledFlights: { type: integer }
+        divertedFlights: { type: integer }
+        onTimeDeparturePct: { type: number }
+        cancellationPct: { type: number }
+        avgDepartureDelayMinutes: { type: number }
+        avgArrivalDelayMinutes: { type: number }
+    DailyDelay:
+      type: object
+      required: [date, flights, delayedDepartures, cancelledFlights, onTimeDeparturePct, avgDepartureDelayMinutes]
+      properties:
+        date: { type: string }
+        flights: { type: integer }
+        delayedDepartures: { type: integer }
+        cancelledFlights: { type: integer }
+        onTimeDeparturePct: { type: number }
+        avgDepartureDelayMinutes: { type: number }
+    CarrierDelay:
+      type: object
+      required: [code, flights, delayedDepartures, cancelledFlights, onTimeDeparturePct, avgDepartureDelayMinutes]
+      properties:
+        code: { type: string }
+        flights: { type: integer }
+        delayedDepartures: { type: integer }
+        cancelledFlights: { type: integer }
+        onTimeDeparturePct: { type: number }
+        avgDepartureDelayMinutes: { type: number }
+    DelayCause:
+      type: object
+      required: [cause, minutes]
+      properties:
+        cause:
+          type: string
+          enum: [Carrier, Weather, National Airspace, Security, Late Aircraft]
+        minutes: { type: integer }
+    WeekdayDelay:
+      type: object
+      required: [dayOfWeek, flights, delayedDepartures, onTimeDeparturePct]
+      properties:
+        dayOfWeek: { type: string }
+        flights: { type: integer }
+        delayedDepartures: { type: integer }
+        onTimeDeparturePct: { type: number }
 

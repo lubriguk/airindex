@@ -1,10 +1,11 @@
-# [Project name]
+# Airport Delay Dashboard
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Explore official BTS flight delay trends for 32 U.S. departure airports using a queryable PostgreSQL dataset.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (through its managed workflow)
+- `pnpm --filter @workspace/airport-delay-dashboard run dev` — run the dashboard (through its managed workflow)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -22,15 +23,23 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/airport-delay-dashboard/` — React dashboard, charts, airport/date controls
+- `artifacts/api-server/src/routes/airport-delays.ts` — parameterized SQL analytics API
+- `artifacts/api-server/src/lib/bts-import.ts` — official BTS ZIP ingestion
+- `lib/db/src/schema/airport-delays.ts` — SQL fact and import-coverage tables
+- `lib/api-spec/openapi.yaml` — API contract; run codegen after changes
+- `docs/bts-data.md` — source fields, metric definitions, and example SQL
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Use BTS Reporting Carrier On-Time Performance monthly ZIPs rather than a third-party dataset. They are public and need no API key.
+- Store daily airport/carrier aggregates in PostgreSQL rather than millions of individual flight rows. This keeps chart queries fast while preserving the metrics used by this dashboard.
+- An airport selects **originating flights**. Departure metrics describe that airport; arrival metrics and BTS cause attribution describe those flights at their destinations.
+- On API startup and daily thereafter, check the latest published month and import the three most recently released months that are not yet loaded. Previously imported months remain available.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Select one of 32 airports to compare daily reliability, airline performance, weekday patterns, delay causes, and cancellation rates. Coverage and source attribution are visible; no invented flights are used.
 
 ## User preferences
 
@@ -38,7 +47,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- BTS files are monthly and released with a lag; this is historical analysis, not a live flight-status feed.
+- First run downloads and aggregates large archives in the background. `/api/data-status` reports `importing` and loaded months; do not treat an initially empty database as sample data.
+- The SQL fact table contains aggregated metrics, not every flight or every field in the source CSV.
 
 ## Pointers
 
