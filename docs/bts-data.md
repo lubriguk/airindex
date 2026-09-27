@@ -1,5 +1,7 @@
 # BTS data and SQL model
 
+For a visual overview of the tables and their keys, see the [database schema and ER diagram](./database-schema.md).
+
 ## Source and scope
 
 This dashboard imports the official [BTS Airline On-Time Statistics](https://www.transtats.bts.gov/ONTIME/) **Reporting Carrier On-Time Performance (1987–present)** monthly public ZIP/CSV files. No key or third-party intermediary is required. BTS publishes these files after the flight month ends; the dashboard is not a live flight tracker.

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1450" height="940" viewBox="0 0 1450 940" role="img" aria-labelledby="title description">
+  <title id="title">Airport Delay Dashboard PostgreSQL entity relationship diagram</title>
+  <desc id="description">Two tables: airport_delay_daily with a composite primary key of flight_date, airport and airline, and bts_imported_months with primary key month. A dotted line represents a derived calendar-month relationship, not a foreign key.</desc>
+  <style>
+    .bg { fill: #f0f5f5; }
+    .card { fill: #fff; stroke: #cbdcdd; stroke-width: 1.5; }
+    .ink { fill: #143747; }
+    .muted { fill: #5c7880; }
+    .teal { fill: #187e83; }
+    .amber { fill: #9d671f; }
+    .head { font: 700 31px/1.2 Arial, Helvetica, sans-serif; }
+    .sub { font: 16px Arial, Helvetica, sans-serif; }
+    .table { font: 700 23px Arial, Helvetica, sans-serif; }
+    .mono { font: 15px "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    .type { font: 14px "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    .small { font: 12px Arial, Helvetica, sans-serif; }
+    .label { font: 700 12px Arial, Helvetica, sans-serif; letter-spacing: 1.4px; }
+    .rule { stroke: #e1e9e9; stroke-width: 1; }
+  </style>
+
+  <rect class="bg" width="1450" height="940"/>
+  <rect x="50" y="39" width="200" height="29" rx="14" fill="#dbebea"/>
+  <text x="67" y="58" class="label teal">POSTGRESQL · PUBLIC</text>
+  <text x="50" y="118" class="head ink">Airport delay database</text>
+  <text x="50" y="149" class="sub muted">Entity relationship diagram · BTS Reporting Carrier On-Time Performance</text>
+
+  <rect x="50" y="196" width="810" height="585" rx="14" class="card"/>
+  <rect x="50" y="196" width="810" height="76" rx="14" fill="#143747"/>
+  <rect x="50" y="256" width="810" height="16" fill="#143747"/>
+  <text x="82" y="236" class="table" fill="#fff">airport_delay_daily</text>
+  <text x="82" y="258" class="small" fill="#b8d9da">FACT TABLE · ONE ROW PER ORIGIN AIRPORT / DATE / REPORTING CARRIER</text>
+
+  <text x="82" y="297" class="label teal">COMPOSITE PRIMARY KEY</text>
+  <text x="83" y="325" class="mono ink">flight_date</text><text x="710" y="325" class="type muted">date</text>
+  <text x="83" y="351" class="mono ink">airport</text><text x="710" y="351" class="type muted">text</text>
+  <text x="83" y="377" class="mono ink">airline</text><text x="710" y="377" class="type muted">text</text>
+  <rect x="803" y="309" width="35" height="19" rx="4" fill="#dbebea"/><text x="809" y="323" class="small teal">PK</text>
+  <rect x="803" y="335" width="35" height="19" rx="4" fill="#dbebea"/><text x="809" y="349" class="small teal">PK</text>
+  <rect x="803" y="361" width="35" height="19" rx="4" fill="#dbebea"/><text x="809" y="375" class="small teal">PK</text>
+  <line x1="82" y1="391" x2="828" y2="391" class="rule"/>
+
+  <text x="82" y="417" class="label muted">AGGREGATED METRICS · ALL INTEGER</text>
+  <text x="83" y="446" class="mono ink">flights</text><text x="710" y="446" class="type muted">integer</text>
+  <text x="83" y="469" class="mono ink">departure_flights</text><text x="710" y="469" class="type muted">integer</text>
+  <text x="83" y="492" class="mono ink">arrival_flights</text><text x="710" y="492" class="type muted">integer</text>
+  <text x="83" y="515" class="mono ink">delayed_departures</text><text x="710" y="515" class="type muted">integer</text>
+  <text x="83" y="538" class="mono ink">cancelled_flights</text><text x="710" y="538" class="type muted">integer</text>
+  <text x="83" y="561" class="mono ink">diverted_flights</text><text x="710" y="561" class="type muted">integer</text>
+  <text x="83" y="584" class="mono ink">total_dep_delay_minutes</text><text x="710" y="584" class="type muted">integer</text>
+  <text x="83" y="607" class="mono ink">total_arr_delay_minutes</text><text x="710" y="607" class="type muted">integer</text>
+  <text x="83" y="630" class="mono ink">carrier_delay_minutes</text><text x="710" y="630" class="type muted">integer</text>
+  <text x="83" y="653" class="mono ink">weather_delay_minutes</text><text x="710" y="653" class="type muted">integer</text>
+  <text x="83" y="676" class="mono ink">nas_delay_minutes</text><text x="710" y="676" class="type muted">integer</text>
+  <text x="83" y="699" class="mono ink">security_delay_minutes</text><text x="710" y="699" class="type muted">integer</text>
+  <text x="83" y="722" class="mono ink">late_aircraft_delay_minutes</text><text x="710" y="722" class="type muted">integer</text>
+  <line x1="82" y1="739" x2="828" y2="739" class="rule"/>
+  <text x="82" y="761" class="small muted">INDEX  airport_delay_airport_date_idx  (airport, flight_date)</text>
+
+  <path d="M860 337 H1018" fill="none" stroke="#c18a39" stroke-width="2.5" stroke-dasharray="6 6"/>
+  <circle cx="860" cy="337" r="5" fill="#c18a39"/><circle cx="1018" cy="337" r="5" fill="#c18a39"/>
+  <text x="890" y="292" class="small amber">calendar month</text>
+  <text x="895" y="309" class="small amber">logical only</text>
+
+  <rect x="1018" y="196" width="382" height="350" rx="14" class="card"/>
+  <rect x="1018" y="196" width="382" height="76" rx="14" fill="#187e83"/>
+  <rect x="1018" y="256" width="382" height="16" fill="#187e83"/>
+  <text x="1050" y="236" class="table" fill="#fff">bts_imported_months</text>
+  <text x="1050" y="258" class="small" fill="#d1efed">IMPORT BOOKKEEPING · ONE ROW PER MONTH</text>
+  <text x="1050" y="298" class="label teal">COLUMNS</text>
+  <text x="1050" y="326" class="mono ink">month</text><text x="1301" y="326" class="type muted">text</text>
+  <rect x="1360" y="310" width="27" height="19" rx="4" fill="#dbebea"/><text x="1365" y="324" class="small teal">PK</text>
+  <text x="1050" y="355" class="mono ink">flight_count</text><text x="1310" y="355" class="type muted">int</text>
+  <text x="1050" y="384" class="mono ink">imported_at</text><text x="1250" y="384" class="type muted">timestamptz</text>
+  <line x1="1050" y1="405" x2="1368" y2="405" class="rule"/>
+  <text x="1050" y="434" class="small muted">month format: YYYY-MM</text>
+  <text x="1050" y="459" class="small muted">imported_at defaults to now()</text>
+  <text x="1050" y="484" class="small muted">flight_count counts selected airports</text>
+  <text x="1050" y="520" class="small amber">No foreign key is defined.</text>
+
+  <rect x="50" y="810" width="1350" height="82" rx="11" fill="#e2eeee"/>
+  <text x="76" y="839" class="label teal">HOW THE TABLES RELATE</text>
+  <text x="76" y="864" class="sub ink">to_char(airport_delay_daily.flight_date, 'YYYY-MM') = bts_imported_months.month</text>
+  <text x="50" y="919" class="small muted">PK = primary key · All columns are NOT NULL · Dotted connector is a derived relationship, not an enforced foreign key.</text>
+</svg>
