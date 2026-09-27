@@ -33,10 +33,18 @@ export interface DelaySummary {
   /** @nullable */
   to: string | null;
   flights: number;
+  departureFlights: number;
   arrivalFlights: number;
   delayedDepartures: number;
   cancelledFlights: number;
   divertedFlights: number;
+  totalDepDelayMinutes: number;
+  totalArrDelayMinutes: number;
+  carrierDelayMinutes: number;
+  weatherDelayMinutes: number;
+  nasDelayMinutes: number;
+  securityDelayMinutes: number;
+  lateAircraftDelayMinutes: number;
   onTimeDeparturePct: number;
   cancellationPct: number;
   avgDepartureDelayMinutes: number;
@@ -126,6 +134,16 @@ export type FromParameter = string;
 
 export type ToParameter = string;
 
+/**
+ * Repeat to include several reporting airlines. Omit for all airlines.
+ */
+export type AirlineParameter = string[];
+
+/**
+ * Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.
+ */
+export type MetricRuleParameter = string[];
+
 export type GetDelaySummaryParams = {
 airport: AirportParameter;
 /**
@@ -136,6 +154,18 @@ from?: FromParameter;
  * @pattern ^\d{4}-\d{2}-\d{2}$
  */
 to?: ToParameter;
+/**
+ * Repeat to include several reporting airlines. Omit for all airlines.
+ * @maxItems 32
+ * @items.pattern ^[A-Z0-9]{2}$
+ */
+airline?: AirlineParameter;
+/**
+ * Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.
+ * @maxItems 30
+ * @items.pattern ^(flights|departure_flights|arrival_flights|delayed_departures|cancelled_flights|diverted_flights|total_dep_delay_minutes|total_arr_delay_minutes|carrier_delay_minutes|weather_delay_minutes|nas_delay_minutes|security_delay_minutes|late_aircraft_delay_minutes):(gte|lte|eq):[0-9]+$
+ */
+metric?: MetricRuleParameter;
 };
 
 export type GetDailyDelaysParams = {
@@ -148,6 +178,18 @@ from?: FromParameter;
  * @pattern ^\d{4}-\d{2}-\d{2}$
  */
 to?: ToParameter;
+/**
+ * Repeat to include several reporting airlines. Omit for all airlines.
+ * @maxItems 32
+ * @items.pattern ^[A-Z0-9]{2}$
+ */
+airline?: AirlineParameter;
+/**
+ * Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.
+ * @maxItems 30
+ * @items.pattern ^(flights|departure_flights|arrival_flights|delayed_departures|cancelled_flights|diverted_flights|total_dep_delay_minutes|total_arr_delay_minutes|carrier_delay_minutes|weather_delay_minutes|nas_delay_minutes|security_delay_minutes|late_aircraft_delay_minutes):(gte|lte|eq):[0-9]+$
+ */
+metric?: MetricRuleParameter;
 };
 
 export type GetCarrierDelaysParams = {
@@ -160,6 +202,18 @@ from?: FromParameter;
  * @pattern ^\d{4}-\d{2}-\d{2}$
  */
 to?: ToParameter;
+/**
+ * Repeat to include several reporting airlines. Omit for all airlines.
+ * @maxItems 32
+ * @items.pattern ^[A-Z0-9]{2}$
+ */
+airline?: AirlineParameter;
+/**
+ * Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.
+ * @maxItems 30
+ * @items.pattern ^(flights|departure_flights|arrival_flights|delayed_departures|cancelled_flights|diverted_flights|total_dep_delay_minutes|total_arr_delay_minutes|carrier_delay_minutes|weather_delay_minutes|nas_delay_minutes|security_delay_minutes|late_aircraft_delay_minutes):(gte|lte|eq):[0-9]+$
+ */
+metric?: MetricRuleParameter;
 };
 
 export type GetDelayCausesParams = {
@@ -172,6 +226,18 @@ from?: FromParameter;
  * @pattern ^\d{4}-\d{2}-\d{2}$
  */
 to?: ToParameter;
+/**
+ * Repeat to include several reporting airlines. Omit for all airlines.
+ * @maxItems 32
+ * @items.pattern ^[A-Z0-9]{2}$
+ */
+airline?: AirlineParameter;
+/**
+ * Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.
+ * @maxItems 30
+ * @items.pattern ^(flights|departure_flights|arrival_flights|delayed_departures|cancelled_flights|diverted_flights|total_dep_delay_minutes|total_arr_delay_minutes|carrier_delay_minutes|weather_delay_minutes|nas_delay_minutes|security_delay_minutes|late_aircraft_delay_minutes):(gte|lte|eq):[0-9]+$
+ */
+metric?: MetricRuleParameter;
 };
 
 export type GetWeekdayDelaysParams = {
@@ -184,5 +250,17 @@ from?: FromParameter;
  * @pattern ^\d{4}-\d{2}-\d{2}$
  */
 to?: ToParameter;
+/**
+ * Repeat to include several reporting airlines. Omit for all airlines.
+ * @maxItems 32
+ * @items.pattern ^[A-Z0-9]{2}$
+ */
+airline?: AirlineParameter;
+/**
+ * Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.
+ * @maxItems 30
+ * @items.pattern ^(flights|departure_flights|arrival_flights|delayed_departures|cancelled_flights|diverted_flights|total_dep_delay_minutes|total_arr_delay_minutes|carrier_delay_minutes|weather_delay_minutes|nas_delay_minutes|security_delay_minutes|late_aircraft_delay_minutes):(gte|lte|eq):[0-9]+$
+ */
+metric?: MetricRuleParameter;
 };
 

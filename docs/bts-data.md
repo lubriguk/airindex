@@ -28,6 +28,15 @@ Missing delay values are excluded from the corresponding average's denominator; 
 - `airport_delay_daily`: primary key `(flight_date, airport, airline)`; daily facts for fast filter/group-by queries. Indexed on `(airport, flight_date)`.
 - `bts_imported_months`: a month is recorded only after its facts commit successfully. Check it when a time period appears absent.
 
+The dashboard can filter on one or more reporting airlines and on any numeric
+column in `airport_delay_daily`. Multiple metric rules use AND: each
+airport/date/airline row must satisfy every rule **before** the API sums matching
+rows for the summary, daily chart, carrier comparison, weekday chart, and cause
+totals. For example, `metric=flights:gte:100&metric=cancelled_flights:lte:5`
+keeps only daily airline aggregates with at least 100 flights and at most five
+cancellations. Selecting which summary cards to show is separate and does not
+change these calculations.
+
 The underlying data can be queried directly in the database pane or with any PostgreSQL client. Examples:
 
 ```sql

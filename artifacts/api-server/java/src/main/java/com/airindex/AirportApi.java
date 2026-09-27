@@ -19,12 +19,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 
 public final class AirportApi {
     private static final String BTS_SOURCE_URL = "https://www.transtats.bts.gov/ONTIME/";
     private static final String INVALID_FILTER =
-            "Choose a supported airport and a valid date range (YYYY-MM-DD).";
+            "Choose a supported airport, valid dates, airline codes, and metric rules.";
     private static final String WHERE = """
             WHERE airport = ?
                AND (?::date IS NULL OR flight_date >= ?::date)
@@ -38,6 +39,14 @@ public final class AirportApi {
              COALESCE(ROUND(SUM(total_dep_delay_minutes)::numeric
               / NULLIF(SUM(departure_flights), 0), 1), 0)
             """;
+    private static final Set<String> FILTERABLE_METRICS = Set.of(
+            "flights", "departure_flights", "arrival_flights",
+            "delayed_departures", "cancelled_flights", "diverted_flights",
+            "total_dep_delay_minutes", "total_arr_delay_minutes",
+            "carrier_delay_minutes", "weather_delay_minutes", "nas_delay_minutes",
+            "security_delay_minutes", "late_aircraft_delay_minutes");
+    private static final Map<String, String> OPERATORS =
+            Map.of("gte", ">=", "lte", "<=", "eq", "=");
     private static final List<String[]> AIRPORTS = List.<String[]>of(
             new String[]{"ATL", "Hartsfield–Jackson Atlanta International", "Atlanta, GA"},
             new String[]{"DFW", "Dallas Fort Worth International", "Dallas–Fort Worth, TX"},
@@ -118,6 +127,13 @@ public final class AirportApi {
             }
             try {
                 endpoint.handle(exchange);
+            } catch (IOException exception) {
+                // Rapid filter edits cancel in-flight browser requests. The client has
+                // already disconnected, so there is no response left to send.
+                if (!"Broken pipe".equals(exception.getMessage())
+                        && !"Connection reset by peer".equals(exception.getMessage())) {
+                    exception.printStackTrace(System.err);
+                }
             } catch (Exception exception) {
                 exception.printStackTrace(System.err);
                 sendJson(exchange, 500, Map.of("error", "Internal server error"));
@@ -183,6 +199,14 @@ public final class AirportApi {
                    COALESCE(SUM(delayed_departures), 0) AS "delayedDepartures",
                    COALESCE(SUM(cancelled_flights), 0) AS "cancelledFlights",
                    COALESCE(SUM(diverted_flights), 0) AS "divertedFlights",
+                   COALESCE(SUM(departure_flights), 0) AS "departureFlights",
+                   COALESCE(SUM(total_dep_delay_minutes), 0) AS "totalDepDelayMinutes",
+                   COALESCE(SUM(total_arr_delay_minutes), 0) AS "totalArrDelayMinutes",
+                   COALESCE(SUM(carrier_delay_minutes), 0) AS "carrierDelayMinutes",
+                   COALESCE(SUM(weather_delay_minutes), 0) AS "weatherDelayMinutes",
+                   COALESCE(SUM(nas_delay_minutes), 0) AS "nasDelayMinutes",
+                   COALESCE(SUM(security_delay_minutes), 0) AS "securityDelayMinutes",
+                   COALESCE(SUM(late_aircraft_delay_minutes), 0) AS "lateAircraftDelayMinutes",
                    %s AS "onTimeDeparturePct",
                   COALESCE(ROUND(100.0 * SUM(cancelled_flights)
                      / NULLIF(SUM(flights), 0), 1), 0) AS "cancellationPct",
@@ -190,7 +214,7 @@ public final class AirportApi {
                    COALESCE(ROUND(SUM(total_arr_delay_minutes)::numeric
                      / NULLIF(SUM(arrival_flights), 0), 1), 0) AS "avgArrivalDelayMinutes"
                 FROM airport_delay_daily %s
-                """.formatted(PCT, AVG_DEPARTURE, WHERE);
+                 """.formatted(PCT, AVG_DEPARTURE, where(filter));
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = prepare(connection, sql, filter);
              ResultSet rows = statement.executeQuery()) {
@@ -204,6 +228,14 @@ public final class AirportApi {
             result.put("delayedDepartures", integer(rows.getObject("delayedDepartures")));
             result.put("cancelledFlights", integer(rows.getObject("cancelledFlights")));
             result.put("divertedFlights", integer(rows.getObject("divertedFlights")));
+            result.put("departureFlights", integer(rows.getObject("departureFlights")));
+            result.put("totalDepDelayMinutes", integer(rows.getObject("totalDepDelayMinutes")));
+            result.put("totalArrDelayMinutes", integer(rows.getObject("totalArrDelayMinutes")));
+            result.put("carrierDelayMinutes", integer(rows.getObject("carrierDelayMinutes")));
+            result.put("weatherDelayMinutes", integer(rows.getObject("weatherDelayMinutes")));
+            result.put("nasDelayMinutes", integer(rows.getObject("nasDelayMinutes")));
+            result.put("securityDelayMinutes", integer(rows.getObject("securityDelayMinutes")));
+            result.put("lateAircraftDelayMinutes", integer(rows.getObject("lateAircraftDelayMinutes")));
             result.put("onTimeDeparturePct", decimal(rows.getObject("onTimeDeparturePct")));
             result.put("cancellationPct", decimal(rows.getObject("cancellationPct")));
             result.put("avgDepartureDelayMinutes", decimal(rows.getObject("avgDepartureDelayMinutes")));
@@ -224,7 +256,7 @@ public final class AirportApi {
                    %s AS "avgDepartureDelayMinutes"
                 FROM airport_delay_daily %s
                 GROUP BY flight_date ORDER BY flight_date
-                """.formatted(PCT, AVG_DEPARTURE, WHERE);
+                 """.formatted(PCT, AVG_DEPARTURE, where(filter));
         List<Map<String, Object>> result = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = prepare(connection, sql, filter);
@@ -254,7 +286,7 @@ public final class AirportApi {
                    %s AS "avgDepartureDelayMinutes"
                 FROM airport_delay_daily %s
                 GROUP BY airline ORDER BY flights DESC, airline
-                """.formatted(PCT, AVG_DEPARTURE, WHERE);
+                 """.formatted(PCT, AVG_DEPARTURE, where(filter));
         List<Map<String, Object>> result = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = prepare(connection, sql, filter);
@@ -283,7 +315,7 @@ public final class AirportApi {
                   COALESCE(SUM(security_delay_minutes), 0) AS security,
                   COALESCE(SUM(late_aircraft_delay_minutes), 0) AS late_aircraft
                 FROM airport_delay_daily %s
-                """.formatted(WHERE);
+                 """.formatted(where(filter));
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = prepare(connection, sql, filter);
              ResultSet rows = statement.executeQuery()) {
@@ -308,7 +340,7 @@ public final class AirportApi {
                    %s AS "onTimeDeparturePct"
                 FROM airport_delay_daily %s
                 GROUP BY dow ORDER BY dow
-                """.formatted(PCT, WHERE);
+                 """.formatted(PCT, where(filter));
         List<Map<String, Object>> result = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = prepare(connection, sql, filter);
@@ -337,19 +369,55 @@ public final class AirportApi {
         String airport = single(query, "airport");
         String from = single(query, "from");
         String to = single(query, "to");
+        List<String> airlines = query.getOrDefault("airline", List.of());
+        List<String> metricValues = query.getOrDefault("metric", List.of());
         boolean valid = airport != null && AIRPORT_CODES.contains(airport)
                 && (!query.containsKey("from") || query.get("from").size() == 1)
                 && (!query.containsKey("to") || query.get("to").size() == 1)
                 && (from == null || validDate(from))
-                && (to == null || validDate(to));
+                && (to == null || validDate(to))
+                && airlines.size() <= 32
+                && airlines.stream().allMatch(code -> code.matches("[A-Z0-9]{2}"))
+                && metricValues.size() <= 30;
         if (valid && from != null && to != null) {
             valid = !LocalDate.parse(from).isAfter(LocalDate.parse(to));
+        }
+        List<MetricRule> rules = new ArrayList<>();
+        if (valid) {
+            try {
+                for (String value : metricValues) {
+                    String[] parts = value.split(":", -1);
+                    if (parts.length != 3 || !FILTERABLE_METRICS.contains(parts[0])
+                            || !OPERATORS.containsKey(parts[1]) || !parts[2].matches("\\d+")) {
+                        valid = false;
+                        break;
+                    }
+                    long threshold = Long.parseLong(parts[2]);
+                    rules.add(new MetricRule(parts[0], OPERATORS.get(parts[1]), threshold));
+                }
+            } catch (NumberFormatException exception) {
+                valid = false;
+            }
         }
         if (!valid) {
             sendJson(exchange, 400, Map.of("error", INVALID_FILTER));
             return null;
         }
-        return new Filter(airport, from, to);
+        return new Filter(airport, from, to, airlines, rules);
+    }
+
+    private static String where(Filter filter) {
+        StringBuilder sql = new StringBuilder(WHERE);
+        if (!filter.airlines.isEmpty()) {
+            sql.append(" AND airline IN (");
+            sql.append(String.join(", ", filter.airlines.stream().map(code -> "?").toList()));
+            sql.append(')');
+        }
+        for (MetricRule rule : filter.rules) {
+            sql.append(" AND ").append(rule.column).append(' ')
+                    .append(rule.operator).append(" ?");
+        }
+        return sql.toString();
     }
 
     private static Map<String, List<String>> parseQuery(String rawQuery) {
@@ -392,6 +460,9 @@ public final class AirportApi {
         setNullableString(statement, 3, filter.from);
         setNullableString(statement, 4, filter.to);
         setNullableString(statement, 5, filter.to);
+        int index = 6;
+        for (String airline : filter.airlines) statement.setString(index++, airline);
+        for (MetricRule rule : filter.rules) statement.setLong(index++, rule.threshold);
         return statement;
     }
 
@@ -440,11 +511,18 @@ public final class AirportApi {
         private final String airport;
         private final String from;
         private final String to;
+        private final List<String> airlines;
+        private final List<MetricRule> rules;
 
-        private Filter(String airport, String from, String to) {
+        private Filter(String airport, String from, String to, List<String> airlines,
+                       List<MetricRule> rules) {
             this.airport = airport;
             this.from = from;
             this.to = to;
+            this.airlines = List.copyOf(airlines);
+            this.rules = List.copyOf(rules);
         }
     }
+
+    private record MetricRule(String column, String operator, long threshold) {}
 }

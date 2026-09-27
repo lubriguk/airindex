@@ -2,17 +2,42 @@ import { disposeChart, renderDailyChart, renderWeekdayChart } from './charts.js'
 
 const CODES = ['ATL', 'DFW', 'DEN', 'ORD', 'LAX', 'JFK', 'LGA', 'EWR', 'SFO', 'SEA', 'CLT', 'PHX', 'MIA', 'PHL', 'DCA', 'IAD', 'IAH', 'DTW', 'MSP', 'SLC', 'BOS', 'PDX', 'ANC', 'HNL', 'DAL', 'HOU', 'MDW', 'BWI', 'LAS', 'MCO', 'FLL', 'SJU'];
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const RAW_METRICS = [
+  ['flights', 'Flights', 'flights'],
+  ['departure_flights', 'Departure flights', 'departureFlights'],
+  ['arrival_flights', 'Arrival flights', 'arrivalFlights'],
+  ['delayed_departures', 'Delayed departures', 'delayedDepartures'],
+  ['cancelled_flights', 'Cancelled flights', 'cancelledFlights'],
+  ['diverted_flights', 'Diverted flights', 'divertedFlights'],
+  ['total_dep_delay_minutes', 'Total departure delay minutes', 'totalDepDelayMinutes'],
+  ['total_arr_delay_minutes', 'Total arrival delay minutes', 'totalArrDelayMinutes'],
+  ['carrier_delay_minutes', 'Carrier delay minutes', 'carrierDelayMinutes'],
+  ['weather_delay_minutes', 'Weather delay minutes', 'weatherDelayMinutes'],
+  ['nas_delay_minutes', 'NAS delay minutes', 'nasDelayMinutes'],
+  ['security_delay_minutes', 'Security delay minutes', 'securityDelayMinutes'],
+  ['late_aircraft_delay_minutes', 'Late aircraft delay minutes', 'lateAircraftDelayMinutes'],
+];
+const HEADLINE_METRICS = [
+  ['on-time', 'On-time departures', 'onTimeDeparturePct', '%', 'Departed less than 15 minutes late'],
+  ['scheduled', 'Flights scheduled', 'flights', '', 'Reported departures in this selection'],
+  ['average-delay', 'Avg departure delay', 'avgDepartureDelayMinutes', ' min', 'Average across reported departures'],
+  ['cancellation-rate', 'Cancellation rate', 'cancellationPct', '%', 'Share of reported flights cancelled'],
+];
+const DEFAULT_METRICS = HEADLINE_METRICS.map(([id]) => id);
 const fmt = new Intl.NumberFormat('en-US');
 const $ = (id) => document.getElementById(id);
 const apiRoot = new URL('api/', new URL(import.meta.env.BASE_URL, window.location.origin));
 const state = {
   airports: { pending: true }, status: { pending: true },
   results: {}, requestId: 0, controller: null, metadataId: 0,
+  airlineOptions: { pending: true }, airlineRequestId: 0,
+  airlines: new Set(), rules: [], nextRuleId: 1, shownMetrics: new Set(DEFAULT_METRICS),
 };
 const paths = {
   summary: 'delays/summary', daily: 'delays/daily', carriers: 'delays/carriers',
   causes: 'delays/causes', weekday: 'delays/weekday',
 };
+let ruleInputTimer;
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -52,6 +77,79 @@ function legend(secondary = false) {
 
 function metric(label, value, note) {
   return `<div class="metric"><div class="metric-label">${label}</div><div class="metric-value" data-testid="text-metric-${label.toLowerCase().replace(/\W+/g, '-')}">${escapeHtml(value)}</div><div class="metric-note">${escapeHtml(note)}</div></div>`;
+}
+
+function renderAirlines() {
+  const { airlineOptions, airlines } = state;
+  const codes = (Array.isArray(airlineOptions.data) ? airlineOptions.data : [])
+    .map((item) => item.code).filter((code) => typeof code === 'string' && code.length);
+  $('airline-trigger').disabled = airlineOptions.pending;
+  $('airline-value').textContent = airlines.size ? [...airlines].sort().join(', ')
+    : airlineOptions.pending ? 'Loading airlines…' : airlineOptions.error ? 'Airlines unavailable' : 'All airlines';
+  $('airline-options').innerHTML = airlineOptions.pending ? loading(90)
+    : airlineOptions.error ? `<div class="airline-menu-note" role="alert">Could not load airlines. <button type="button" data-action="retry-airlines" data-testid="button-retry-airlines">Try again</button></div>`
+      : !codes.length ? '<p class="airline-menu-note">No carriers reported at this airport yet.</p>'
+        : codes.sort().map((code) => `<label class="airline-option"><input type="checkbox" value="${escapeHtml(code)}" ${airlines.has(code) ? 'checked' : ''} data-testid="checkbox-airline-${escapeHtml(code)}"><span>${escapeHtml(code)}</span></label>`).join('');
+  updateQueryChips();
+}
+
+async function loadAvailableAirlines() {
+  const id = ++state.airlineRequestId;
+  const airport = $('airport').value;
+  state.airlineOptions = { pending: true };
+  renderAirlines();
+  try {
+    // Intentionally unfiltered: choices must never disappear when dates or rules change.
+    const data = await request('delays/carriers', { airport });
+    if (id !== state.airlineRequestId) return;
+    state.airlineOptions = { data };
+  } catch {
+    if (id !== state.airlineRequestId) return;
+    state.airlineOptions = { error: true };
+  }
+  renderAirlines();
+}
+
+function renderRules() {
+  $('rule-list').innerHTML = state.rules.length ? state.rules.map((rule) => `
+    <div class="rule-row" data-rule-id="${rule.id}">
+      <select class="control rule-column" aria-label="Metric for rule ${rule.id}" data-testid="select-rule-column-${rule.id}">${RAW_METRICS.map(([key, label]) => `<option value="${key}" ${rule.column === key ? 'selected' : ''}>${label}</option>`).join('')}</select>
+      <select class="control rule-operator" aria-label="Comparison for rule ${rule.id}" data-testid="select-rule-operator-${rule.id}">
+        <option value="gte" ${rule.operator === 'gte' ? 'selected' : ''}>At least (≥)</option><option value="lte" ${rule.operator === 'lte' ? 'selected' : ''}>At most (≤)</option><option value="eq" ${rule.operator === 'eq' ? 'selected' : ''}>Exactly (=)</option>
+      </select>
+      <input class="control rule-value" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(rule.value)}" aria-label="Whole-number threshold for rule ${rule.id}" data-testid="input-rule-value-${rule.id}">
+      <button class="rule-remove" type="button" aria-label="Remove rule ${rule.id}" data-action="remove-rule" data-testid="button-remove-rule-${rule.id}">×</button>
+    </div>`).join('') : '<div class="rule-empty">No record rules. All reported rows are included.</div>';
+  $('add-rule').disabled = state.rules.length >= 30;
+  updateQueryChips();
+}
+
+function renderMetricChoices() {
+  const choices = [
+    ...HEADLINE_METRICS.map(([id, label]) => [id, label]),
+    ...RAW_METRICS.map(([key, label]) => [`raw-${key}`, `${label}${key.endsWith('_minutes') ? ' · raw' : ' · count'}`]),
+  ];
+  $('metric-options').innerHTML = choices.map(([id, label]) =>
+    `<label class="metric-option"><input type="checkbox" value="${id}" ${state.shownMetrics.has(id) ? 'checked' : ''} data-testid="checkbox-show-${id}"><span>${escapeHtml(label)}</span></label>`).join('');
+  $('metric-choice-count').textContent = `${state.shownMetrics.size} of ${choices.length} cards shown`;
+}
+
+function updateQueryChips() {
+  const parts = [
+    ...[...state.airlines].sort().map((code) => `<span class="query-chip">Airline ${escapeHtml(code)}</span>`),
+    ...state.rules.map((rule) => {
+      const label = RAW_METRICS.find(([key]) => key === rule.column)?.[1] || rule.column;
+      const operator = { gte: '≥', lte: '≤', eq: '=' }[rule.operator];
+      return `<span class="query-chip rule-chip">${escapeHtml(label)} ${operator} ${escapeHtml(rule.value)}</span>`;
+    }),
+  ];
+  $('active-query').hidden = !parts.length;
+  $('active-query').innerHTML = parts.join('');
+  const counts = [
+    state.airlines.size ? `${state.airlines.size} airline${state.airlines.size === 1 ? '' : 's'}` : '',
+    state.rules.length ? `${state.rules.length} rule${state.rules.length === 1 ? '' : 's'}` : '',
+  ].filter(Boolean);
+  $('advanced-count').textContent = counts.length ? `/ ${counts.join(' · ')}` : '';
 }
 
 async function request(path, params, signal) {
@@ -128,7 +226,12 @@ async function loadMetadata() {
 }
 
 function filterValues() {
-  return { airport: $('airport').value, ...($('from').value && { from: $('from').value }), ...($('to').value && { to: $('to').value }) };
+  const params = new URLSearchParams({ airport: $('airport').value });
+  if ($('from').value) params.set('from', $('from').value);
+  if ($('to').value) params.set('to', $('to').value);
+  [...state.airlines].sort().forEach((code) => params.append('airline', code));
+  state.rules.forEach(({ column, operator, value }) => params.append('metric', `${column}:${operator}:${value}`));
+  return params;
 }
 
 function validateDates() {
@@ -142,12 +245,22 @@ function validateDates() {
   return !message;
 }
 
+function validateRules() {
+  const invalid = state.rules.some(({ value }) => !/^(0|[1-9]\d*)$/.test(String(value)) || !Number.isSafeInteger(Number(value)));
+  $('rule-error').textContent = invalid ? 'Each rule needs a nonnegative whole-number threshold.' : '';
+  $('rule-error').hidden = !invalid;
+  return !invalid;
+}
+
 async function loadResults() {
+  clearTimeout(ruleInputTimer);
   if (state.controller) state.controller.abort();
   const id = ++state.requestId;
-  if (!validateDates()) {
+  const datesValid = validateDates();
+  const rulesValid = validateRules();
+  if (!datesValid || !rulesValid) {
     state.results = {};
-    renderResults(true);
+    renderResults(datesValid ? 'Complete each record rule with a nonnegative whole number.' : 'Choose a date range with the start on or before the end.');
     return;
   }
   state.controller = new AbortController();
@@ -163,7 +276,7 @@ async function loadResults() {
   renderResults();
 }
 
-function renderResults(invalid = false) {
+function renderResults(invalid = '') {
   const { summary = { pending: true }, daily = { pending: true }, carriers = { pending: true },
     causes = { pending: true }, weekday = { pending: true } } = state.results;
   const airport = $('airport').value || 'ATL';
@@ -172,19 +285,20 @@ function renderResults(invalid = false) {
   $('period-label').textContent = $('from').value || $('to').value
     ? `${$('from').value ? dateLabel($('from').value) : 'First available'} → ${$('to').value ? dateLabel($('to').value) : 'Latest available'}`
     : 'Full available period';
-  const message = invalid ? 'Choose a date range with the start on or before the end.'
+  const message = invalid ? invalid
     : state.status.data?.importing ? 'The BTS dataset is still being imported. Figures will appear when records for this selection are available.'
-      : 'No reported departing flights match this airport and date range. Try the full available period or another airport.';
+      : 'No reported departing flights match these airport, date, airline, and record-rule selections. Widen the date range or remove a constraint.';
   const hasData = !!summary.data && summary.data.flights > 0;
 
-  $('metrics').innerHTML = invalid ? empty(message) : summary.pending ? loading(140).repeat(4)
+  $('metrics').innerHTML = invalid ? empty(message) : summary.pending ? loading(140).repeat(Math.max(1, Math.min(4, state.shownMetrics.size)))
     : summary.error ? empty('The airport snapshot could not be retrieved. Check the connection and retry.', true)
-      : !hasData ? empty(message) : [
-        metric('On-time departures', `${one(summary.data.onTimeDeparturePct)}%`, 'Departed less than 15 minutes late'),
-        metric('Flights scheduled', number(summary.data.flights), `${number(summary.data.delayedDepartures)} departed 15+ min late`),
-        metric('Avg departure delay', `${one(summary.data.avgDepartureDelayMinutes)} min`, 'Average across reported departures'),
-        metric('Cancellation rate', `${one(summary.data.cancellationPct)}%`, `${number(summary.data.cancelledFlights)} cancelled flights`),
-      ].join('');
+      : !state.shownMetrics.size ? '<div class="state-box" role="status" data-testid="status-summary-no-metrics"><span class="state-icon" aria-hidden="true">◌</span><strong>No summary cards selected</strong><p>Open Advanced controls → Show metrics to choose what appears here. The data below is unchanged.</p></div>'
+        : !hasData ? empty(message) : [
+          ...HEADLINE_METRICS.filter(([id]) => state.shownMetrics.has(id)).map(([id, label, key, suffix, note]) =>
+            metric(label, `${id === 'scheduled' ? number(summary.data[key]) : one(summary.data[key])}${summary.data[key] == null ? '' : suffix}`, note)),
+          ...RAW_METRICS.filter(([key]) => state.shownMetrics.has(`raw-${key}`)).map(([, label, key]) =>
+            metric(label, number(summary.data[key]), 'Raw BTS aggregate · selected records')),
+        ].join('');
 
   const dailyData = (daily.data ?? []).filter((item) => item.flights > 0).sort((a, b) => a.date.localeCompare(b.date));
   const weekdayData = (weekday.data ?? []).filter((item) => item.flights > 0)
@@ -221,14 +335,103 @@ function renderResults(invalid = false) {
 }
 
 populateAirports();
+renderRules();
+renderMetricChoices();
+renderAirlines();
 renderResults();
 document.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'retry') loadResults();
   if (action === 'retry-metadata') loadMetadata();
+  if (action === 'retry-airlines') loadAvailableAirlines();
+  if (action === 'remove-rule') {
+    const id = Number(event.target.closest('[data-rule-id]')?.dataset.ruleId);
+    state.rules = state.rules.filter((rule) => rule.id !== id);
+    renderRules();
+    loadResults();
+  }
+  if (!event.target.closest('.airline-picker')) {
+    $('airline-menu').hidden = true;
+    $('airline-trigger').setAttribute('aria-expanded', 'false');
+  }
 });
-$('airport').addEventListener('change', loadResults);
+$('airline-trigger').addEventListener('click', () => {
+  const willOpen = $('airline-menu').hidden;
+  $('airline-menu').hidden = !willOpen;
+  $('airline-trigger').setAttribute('aria-expanded', String(willOpen));
+});
+$('airline-options').addEventListener('change', (event) => {
+  if (event.target.type !== 'checkbox') return;
+  if (event.target.checked) state.airlines.add(event.target.value);
+  else state.airlines.delete(event.target.value);
+  $('airline-value').textContent = state.airlines.size ? [...state.airlines].sort().join(', ') : 'All airlines';
+  updateQueryChips();
+  loadResults();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !$('airline-menu').hidden) {
+    $('airline-menu').hidden = true;
+    $('airline-trigger').setAttribute('aria-expanded', 'false');
+    $('airline-trigger').focus();
+  }
+});
+$('airport').addEventListener('change', () => {
+  state.airlines.clear();
+  $('airline-menu').hidden = true;
+  $('airline-trigger').setAttribute('aria-expanded', 'false');
+  loadAvailableAirlines();
+  loadResults();
+});
 for (const id of ['from', 'to']) $(id).addEventListener('change', loadResults);
+$('advanced-toggle').addEventListener('click', () => {
+  const expanded = $('advanced-toggle').getAttribute('aria-expanded') !== 'true';
+  $('advanced-toggle').setAttribute('aria-expanded', String(expanded));
+  $('advanced-body').hidden = !expanded;
+});
+$('add-rule').addEventListener('click', () => {
+  state.rules.push({ id: state.nextRuleId++, column: 'flights', operator: 'gte', value: '0' });
+  renderRules();
+  loadResults();
+  $('rule-list').lastElementChild?.querySelector('.rule-column')?.focus();
+});
+$('rule-list').addEventListener('change', (event) => {
+  const row = event.target.closest('[data-rule-id]');
+  if (!row) return;
+  const rule = state.rules.find((item) => item.id === Number(row.dataset.ruleId));
+  if (!rule) return;
+  rule.column = row.querySelector('.rule-column').value;
+  rule.operator = row.querySelector('.rule-operator').value;
+  rule.value = row.querySelector('.rule-value').value;
+  updateQueryChips();
+  loadResults();
+});
+$('rule-list').addEventListener('input', (event) => {
+  if (!event.target.matches('.rule-value')) return;
+  const rule = state.rules.find((item) => item.id === Number(event.target.closest('[data-rule-id]').dataset.ruleId));
+  if (rule) rule.value = event.target.value;
+  if (state.controller) state.controller.abort();
+  state.requestId++;
+  const valid = validateRules();
+  updateQueryChips();
+  state.results = valid
+    ? Object.fromEntries(Object.keys(paths).map((name) => [name, { pending: true }]))
+    : {};
+  renderResults(valid ? '' : 'Complete each record rule with a nonnegative whole number.');
+  clearTimeout(ruleInputTimer);
+  if (valid) ruleInputTimer = setTimeout(loadResults, 350);
+});
+$('metric-options').addEventListener('change', (event) => {
+  if (event.target.type !== 'checkbox') return;
+  if (event.target.checked) state.shownMetrics.add(event.target.value);
+  else state.shownMetrics.delete(event.target.value);
+  $('metric-choice-count').textContent = `${state.shownMetrics.size} of ${HEADLINE_METRICS.length + RAW_METRICS.length} cards shown`;
+  renderResults();
+});
+$('reset-metrics').addEventListener('click', () => {
+  state.shownMetrics = new Set(DEFAULT_METRICS);
+  renderMetricChoices();
+  renderResults();
+});
 $('reset-dates').addEventListener('click', () => {
   $('from').value = '';
   $('to').value = '';
@@ -236,7 +439,7 @@ $('reset-dates').addEventListener('click', () => {
 });
 $('refresh').addEventListener('click', async () => {
   $('refresh').disabled = true;
-  await Promise.all([loadMetadata(), loadResults()]);
+  await Promise.all([loadMetadata(), loadAvailableAirlines(), loadResults()]);
   $('refresh').disabled = false;
 });
-Promise.all([loadMetadata(), loadResults()]);
+Promise.all([loadMetadata(), loadAvailableAirlines(), loadResults()]);

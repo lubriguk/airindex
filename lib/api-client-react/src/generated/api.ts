@@ -294,6 +294,14 @@ export const getGetDelaySummaryUrl = (params: GetDelaySummaryParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["airline","metric"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : String(v));
+      });
+      return;
+    }
 
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : String(value))
@@ -378,6 +386,14 @@ export const getGetDailyDelaysUrl = (params: GetDailyDelaysParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["airline","metric"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : String(v));
+      });
+      return;
+    }
 
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : String(value))
@@ -462,6 +478,14 @@ export const getGetCarrierDelaysUrl = (params: GetCarrierDelaysParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["airline","metric"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : String(v));
+      });
+      return;
+    }
 
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : String(value))
@@ -546,6 +570,14 @@ export const getGetDelayCausesUrl = (params: GetDelayCausesParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["airline","metric"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : String(v));
+      });
+      return;
+    }
 
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : String(value))
@@ -630,6 +662,14 @@ export const getGetWeekdayDelaysUrl = (params: GetWeekdayDelaysParams,) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["airline","metric"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : String(v));
+      });
+      return;
+    }
 
     if (value !== undefined) {
       normalizedParams.append(key, value === null ? 'null' : String(value))

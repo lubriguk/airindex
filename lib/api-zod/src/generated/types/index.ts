@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './airlineParameter';
 export * from './airport';
 export * from './airportParameter';
 export * from './carrierDelay';
@@ -21,5 +22,6 @@ export * from './getDelayCausesParams';
 export * from './getDelaySummaryParams';
 export * from './getWeekdayDelaysParams';
 export * from './healthStatus';
+export * from './metricRuleParameter';
 export * from './toParameter';
 export * from './weekdayDelay';

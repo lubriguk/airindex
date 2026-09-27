@@ -13,10 +13,18 @@ export interface DelaySummary {
   /** @nullable */
   to: string | null;
   flights: number;
+  departureFlights: number;
   arrivalFlights: number;
   delayedDepartures: number;
   cancelledFlights: number;
   divertedFlights: number;
+  totalDepDelayMinutes: number;
+  totalArrDelayMinutes: number;
+  carrierDelayMinutes: number;
+  weatherDelayMinutes: number;
+  nasDelayMinutes: number;
+  securityDelayMinutes: number;
+  lateAircraftDelayMinutes: number;
   onTimeDeparturePct: number;
   cancellationPct: number;
   avgDepartureDelayMinutes: number;

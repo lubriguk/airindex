@@ -46,12 +46,20 @@ export const GetDataStatusResponse = zod.object({
  */
 export const getDelaySummaryQueryFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 export const getDelaySummaryQueryToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getDelaySummaryQueryAirlineItemRegExp = new RegExp('^[A-Z0-9]{2}$');
+export const getDelaySummaryQueryAirlineMax = 32;
+
+export const getDelaySummaryQueryMetricItemRegExp = new RegExp('^(flights|departure_flights|arrival_flights|delayed_departures|cancelled_flights|diverted_flights|total_dep_delay_minutes|total_arr_delay_minutes|carrier_delay_minutes|weather_delay_minutes|nas_delay_minutes|security_delay_minutes|late_aircraft_delay_minutes):(gte|lte|eq):[0-9]+$');
+export const getDelaySummaryQueryMetricMax = 30;
+
 
 
 export const GetDelaySummaryQueryParams = zod.object({
   "airport": zod.enum(['ATL', 'DFW', 'DEN', 'ORD', 'LAX', 'JFK', 'LGA', 'EWR', 'SFO', 'SEA', 'CLT', 'PHX', 'MIA', 'PHL', 'DCA', 'IAD', 'IAH', 'DTW', 'MSP', 'SLC', 'BOS', 'PDX', 'ANC', 'HNL', 'DAL', 'HOU', 'MDW', 'BWI', 'LAS', 'MCO', 'FLL', 'SJU']),
   "from": zod.coerce.string().regex(getDelaySummaryQueryFromRegExp).optional(),
-  "to": zod.coerce.string().regex(getDelaySummaryQueryToRegExp).optional()
+  "to": zod.coerce.string().regex(getDelaySummaryQueryToRegExp).optional(),
+  "airline": zod.array(zod.coerce.string().regex(getDelaySummaryQueryAirlineItemRegExp)).max(getDelaySummaryQueryAirlineMax).optional().describe('Repeat to include several reporting airlines. Omit for all airlines.'),
+  "metric": zod.array(zod.coerce.string().regex(getDelaySummaryQueryMetricItemRegExp)).max(getDelaySummaryQueryMetricMax).optional().describe('Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.')
 })
 
 export const GetDelaySummaryResponse = zod.object({
@@ -59,10 +67,18 @@ export const GetDelaySummaryResponse = zod.object({
   "from": zod.string().nullable(),
   "to": zod.string().nullable(),
   "flights": zod.number().int(),
+  "departureFlights": zod.number().int(),
   "arrivalFlights": zod.number().int(),
   "delayedDepartures": zod.number().int(),
   "cancelledFlights": zod.number().int(),
   "divertedFlights": zod.number().int(),
+  "totalDepDelayMinutes": zod.number().int(),
+  "totalArrDelayMinutes": zod.number().int(),
+  "carrierDelayMinutes": zod.number().int(),
+  "weatherDelayMinutes": zod.number().int(),
+  "nasDelayMinutes": zod.number().int(),
+  "securityDelayMinutes": zod.number().int(),
+  "lateAircraftDelayMinutes": zod.number().int(),
   "onTimeDeparturePct": zod.number(),
   "cancellationPct": zod.number(),
   "avgDepartureDelayMinutes": zod.number(),
@@ -75,12 +91,20 @@ export const GetDelaySummaryResponse = zod.object({
  */
 export const getDailyDelaysQueryFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 export const getDailyDelaysQueryToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getDailyDelaysQueryAirlineItemRegExp = new RegExp('^[A-Z0-9]{2}$');
+export const getDailyDelaysQueryAirlineMax = 32;
+
+export const getDailyDelaysQueryMetricItemRegExp = new RegExp('^(flights|departure_flights|arrival_flights|delayed_departures|cancelled_flights|diverted_flights|total_dep_delay_minutes|total_arr_delay_minutes|carrier_delay_minutes|weather_delay_minutes|nas_delay_minutes|security_delay_minutes|late_aircraft_delay_minutes):(gte|lte|eq):[0-9]+$');
+export const getDailyDelaysQueryMetricMax = 30;
+
 
 
 export const GetDailyDelaysQueryParams = zod.object({
   "airport": zod.enum(['ATL', 'DFW', 'DEN', 'ORD', 'LAX', 'JFK', 'LGA', 'EWR', 'SFO', 'SEA', 'CLT', 'PHX', 'MIA', 'PHL', 'DCA', 'IAD', 'IAH', 'DTW', 'MSP', 'SLC', 'BOS', 'PDX', 'ANC', 'HNL', 'DAL', 'HOU', 'MDW', 'BWI', 'LAS', 'MCO', 'FLL', 'SJU']),
   "from": zod.coerce.string().regex(getDailyDelaysQueryFromRegExp).optional(),
-  "to": zod.coerce.string().regex(getDailyDelaysQueryToRegExp).optional()
+  "to": zod.coerce.string().regex(getDailyDelaysQueryToRegExp).optional(),
+  "airline": zod.array(zod.coerce.string().regex(getDailyDelaysQueryAirlineItemRegExp)).max(getDailyDelaysQueryAirlineMax).optional().describe('Repeat to include several reporting airlines. Omit for all airlines.'),
+  "metric": zod.array(zod.coerce.string().regex(getDailyDelaysQueryMetricItemRegExp)).max(getDailyDelaysQueryMetricMax).optional().describe('Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.')
 })
 
 export const GetDailyDelaysResponseItem = zod.object({
@@ -99,12 +123,20 @@ export const GetDailyDelaysResponse = zod.array(GetDailyDelaysResponseItem)
  */
 export const getCarrierDelaysQueryFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 export const getCarrierDelaysQueryToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getCarrierDelaysQueryAirlineItemRegExp = new RegExp('^[A-Z0-9]{2}$');
+export const getCarrierDelaysQueryAirlineMax = 32;
+
+export const getCarrierDelaysQueryMetricItemRegExp = new RegExp('^(flights|departure_flights|arrival_flights|delayed_departures|cancelled_flights|diverted_flights|total_dep_delay_minutes|total_arr_delay_minutes|carrier_delay_minutes|weather_delay_minutes|nas_delay_minutes|security_delay_minutes|late_aircraft_delay_minutes):(gte|lte|eq):[0-9]+$');
+export const getCarrierDelaysQueryMetricMax = 30;
+
 
 
 export const GetCarrierDelaysQueryParams = zod.object({
   "airport": zod.enum(['ATL', 'DFW', 'DEN', 'ORD', 'LAX', 'JFK', 'LGA', 'EWR', 'SFO', 'SEA', 'CLT', 'PHX', 'MIA', 'PHL', 'DCA', 'IAD', 'IAH', 'DTW', 'MSP', 'SLC', 'BOS', 'PDX', 'ANC', 'HNL', 'DAL', 'HOU', 'MDW', 'BWI', 'LAS', 'MCO', 'FLL', 'SJU']),
   "from": zod.coerce.string().regex(getCarrierDelaysQueryFromRegExp).optional(),
-  "to": zod.coerce.string().regex(getCarrierDelaysQueryToRegExp).optional()
+  "to": zod.coerce.string().regex(getCarrierDelaysQueryToRegExp).optional(),
+  "airline": zod.array(zod.coerce.string().regex(getCarrierDelaysQueryAirlineItemRegExp)).max(getCarrierDelaysQueryAirlineMax).optional().describe('Repeat to include several reporting airlines. Omit for all airlines.'),
+  "metric": zod.array(zod.coerce.string().regex(getCarrierDelaysQueryMetricItemRegExp)).max(getCarrierDelaysQueryMetricMax).optional().describe('Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.')
 })
 
 export const GetCarrierDelaysResponseItem = zod.object({
@@ -123,12 +155,20 @@ export const GetCarrierDelaysResponse = zod.array(GetCarrierDelaysResponseItem)
  */
 export const getDelayCausesQueryFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 export const getDelayCausesQueryToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getDelayCausesQueryAirlineItemRegExp = new RegExp('^[A-Z0-9]{2}$');
+export const getDelayCausesQueryAirlineMax = 32;
+
+export const getDelayCausesQueryMetricItemRegExp = new RegExp('^(flights|departure_flights|arrival_flights|delayed_departures|cancelled_flights|diverted_flights|total_dep_delay_minutes|total_arr_delay_minutes|carrier_delay_minutes|weather_delay_minutes|nas_delay_minutes|security_delay_minutes|late_aircraft_delay_minutes):(gte|lte|eq):[0-9]+$');
+export const getDelayCausesQueryMetricMax = 30;
+
 
 
 export const GetDelayCausesQueryParams = zod.object({
   "airport": zod.enum(['ATL', 'DFW', 'DEN', 'ORD', 'LAX', 'JFK', 'LGA', 'EWR', 'SFO', 'SEA', 'CLT', 'PHX', 'MIA', 'PHL', 'DCA', 'IAD', 'IAH', 'DTW', 'MSP', 'SLC', 'BOS', 'PDX', 'ANC', 'HNL', 'DAL', 'HOU', 'MDW', 'BWI', 'LAS', 'MCO', 'FLL', 'SJU']),
   "from": zod.coerce.string().regex(getDelayCausesQueryFromRegExp).optional(),
-  "to": zod.coerce.string().regex(getDelayCausesQueryToRegExp).optional()
+  "to": zod.coerce.string().regex(getDelayCausesQueryToRegExp).optional(),
+  "airline": zod.array(zod.coerce.string().regex(getDelayCausesQueryAirlineItemRegExp)).max(getDelayCausesQueryAirlineMax).optional().describe('Repeat to include several reporting airlines. Omit for all airlines.'),
+  "metric": zod.array(zod.coerce.string().regex(getDelayCausesQueryMetricItemRegExp)).max(getDelayCausesQueryMetricMax).optional().describe('Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.')
 })
 
 export const GetDelayCausesResponseItem = zod.object({
@@ -143,12 +183,20 @@ export const GetDelayCausesResponse = zod.array(GetDelayCausesResponseItem)
  */
 export const getWeekdayDelaysQueryFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
 export const getWeekdayDelaysQueryToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getWeekdayDelaysQueryAirlineItemRegExp = new RegExp('^[A-Z0-9]{2}$');
+export const getWeekdayDelaysQueryAirlineMax = 32;
+
+export const getWeekdayDelaysQueryMetricItemRegExp = new RegExp('^(flights|departure_flights|arrival_flights|delayed_departures|cancelled_flights|diverted_flights|total_dep_delay_minutes|total_arr_delay_minutes|carrier_delay_minutes|weather_delay_minutes|nas_delay_minutes|security_delay_minutes|late_aircraft_delay_minutes):(gte|lte|eq):[0-9]+$');
+export const getWeekdayDelaysQueryMetricMax = 30;
+
 
 
 export const GetWeekdayDelaysQueryParams = zod.object({
   "airport": zod.enum(['ATL', 'DFW', 'DEN', 'ORD', 'LAX', 'JFK', 'LGA', 'EWR', 'SFO', 'SEA', 'CLT', 'PHX', 'MIA', 'PHL', 'DCA', 'IAD', 'IAH', 'DTW', 'MSP', 'SLC', 'BOS', 'PDX', 'ANC', 'HNL', 'DAL', 'HOU', 'MDW', 'BWI', 'LAS', 'MCO', 'FLL', 'SJU']),
   "from": zod.coerce.string().regex(getWeekdayDelaysQueryFromRegExp).optional(),
-  "to": zod.coerce.string().regex(getWeekdayDelaysQueryToRegExp).optional()
+  "to": zod.coerce.string().regex(getWeekdayDelaysQueryToRegExp).optional(),
+  "airline": zod.array(zod.coerce.string().regex(getWeekdayDelaysQueryAirlineItemRegExp)).max(getWeekdayDelaysQueryAirlineMax).optional().describe('Repeat to include several reporting airlines. Omit for all airlines.'),
+  "metric": zod.array(zod.coerce.string().regex(getWeekdayDelaysQueryMetricItemRegExp)).max(getWeekdayDelaysQueryMetricMax).optional().describe('Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.')
 })
 
 export const GetWeekdayDelaysResponseItem = zod.object({
