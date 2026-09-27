@@ -30,7 +30,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * Imports monthly BTS on-time performance archives into the MySQL delay tables.
+ * Imports monthly BTS on-time performance archives into the existing PostgreSQL delay tables.
  */
 public final class BtsSync implements AutoCloseable {
     private static final String DOWNLOAD_BASE =
@@ -52,7 +52,7 @@ public final class BtsSync implements AutoCloseable {
              weather_delay_minutes, nas_delay_minutes, security_delay_minutes,
              late_aircraft_delay_minutes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE flight_date = VALUES(flight_date)
+             ON CONFLICT (flight_date, airport, airline) DO NOTHING
             """;
 
     private final DataSource dataSource;

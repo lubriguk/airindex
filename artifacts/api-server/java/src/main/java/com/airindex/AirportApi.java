@@ -27,15 +27,15 @@ public final class AirportApi {
             "Choose a supported airport and a valid date range (YYYY-MM-DD).";
     private static final String WHERE = """
             WHERE airport = ?
-              AND (? IS NULL OR flight_date >= ?)
-              AND (? IS NULL OR flight_date <= ?)
+               AND (?::date IS NULL OR flight_date >= ?::date)
+               AND (?::date IS NULL OR flight_date <= ?::date)
             """;
     private static final String PCT = """
             COALESCE(ROUND(100.0 * (SUM(departure_flights) - SUM(delayed_departures))
               / NULLIF(SUM(departure_flights), 0), 1), 0)
             """;
     private static final String AVG_DEPARTURE = """
-            COALESCE(ROUND(SUM(total_dep_delay_minutes)
+             COALESCE(ROUND(SUM(total_dep_delay_minutes)::numeric
               / NULLIF(SUM(departure_flights), 0), 1), 0)
             """;
     private static final List<String[]> AIRPORTS = List.<String[]>of(
@@ -145,9 +145,9 @@ public final class AirportApi {
         Map<String, Object> result = new LinkedHashMap<>();
         try (Connection connection = dataSource.getConnection()) {
             try (PreparedStatement statement = connection.prepareStatement("""
-                    SELECT DATE_FORMAT(MIN(flight_date), '%Y-%m-%d') AS firstDate,
-                      DATE_FORMAT(MAX(flight_date), '%Y-%m-%d') AS lastDate,
-                      COALESCE(SUM(flights), 0) AS totalFlights
+                     SELECT MIN(flight_date)::text AS "firstDate",
+                       MAX(flight_date)::text AS "lastDate",
+                       COALESCE(SUM(flights), 0) AS "totalFlights"
                     FROM airport_delay_daily
                     """);
                  ResultSet rows = statement.executeQuery()) {
@@ -176,19 +176,19 @@ public final class AirportApi {
         Filter filter = readFilter(exchange);
         if (filter == null) return;
         String sql = """
-                SELECT DATE_FORMAT(MIN(flight_date), '%%Y-%%m-%%d') AS `from`,
-                  DATE_FORMAT(MAX(flight_date), '%%Y-%%m-%%d') AS `to`,
+                 SELECT MIN(flight_date)::text AS "from",
+                   MAX(flight_date)::text AS "to",
                   COALESCE(SUM(flights), 0) AS flights,
-                  COALESCE(SUM(arrival_flights), 0) AS arrivalFlights,
-                  COALESCE(SUM(delayed_departures), 0) AS delayedDepartures,
-                  COALESCE(SUM(cancelled_flights), 0) AS cancelledFlights,
-                  COALESCE(SUM(diverted_flights), 0) AS divertedFlights,
-                  %s AS onTimeDeparturePct,
+                   COALESCE(SUM(arrival_flights), 0) AS "arrivalFlights",
+                   COALESCE(SUM(delayed_departures), 0) AS "delayedDepartures",
+                   COALESCE(SUM(cancelled_flights), 0) AS "cancelledFlights",
+                   COALESCE(SUM(diverted_flights), 0) AS "divertedFlights",
+                   %s AS "onTimeDeparturePct",
                   COALESCE(ROUND(100.0 * SUM(cancelled_flights)
-                    / NULLIF(SUM(flights), 0), 1), 0) AS cancellationPct,
-                  %s AS avgDepartureDelayMinutes,
-                  COALESCE(ROUND(SUM(total_arr_delay_minutes)
-                    / NULLIF(SUM(arrival_flights), 0), 1), 0) AS avgArrivalDelayMinutes
+                     / NULLIF(SUM(flights), 0), 1), 0) AS "cancellationPct",
+                   %s AS "avgDepartureDelayMinutes",
+                   COALESCE(ROUND(SUM(total_arr_delay_minutes)::numeric
+                     / NULLIF(SUM(arrival_flights), 0), 1), 0) AS "avgArrivalDelayMinutes"
                 FROM airport_delay_daily %s
                 """.formatted(PCT, AVG_DEPARTURE, WHERE);
         try (Connection connection = dataSource.getConnection();
@@ -216,12 +216,12 @@ public final class AirportApi {
         Filter filter = readFilter(exchange);
         if (filter == null) return;
         String sql = """
-                SELECT DATE_FORMAT(flight_date, '%%Y-%%m-%%d') AS `date`,
+                 SELECT flight_date::text AS "date",
                   SUM(flights) AS flights,
-                  SUM(delayed_departures) AS delayedDepartures,
-                  SUM(cancelled_flights) AS cancelledFlights,
-                  %s AS onTimeDeparturePct,
-                  %s AS avgDepartureDelayMinutes
+                   SUM(delayed_departures) AS "delayedDepartures",
+                   SUM(cancelled_flights) AS "cancelledFlights",
+                   %s AS "onTimeDeparturePct",
+                   %s AS "avgDepartureDelayMinutes"
                 FROM airport_delay_daily %s
                 GROUP BY flight_date ORDER BY flight_date
                 """.formatted(PCT, AVG_DEPARTURE, WHERE);
@@ -248,10 +248,10 @@ public final class AirportApi {
         if (filter == null) return;
         String sql = """
                 SELECT airline AS code, SUM(flights) AS flights,
-                  SUM(delayed_departures) AS delayedDepartures,
-                  SUM(cancelled_flights) AS cancelledFlights,
-                  %s AS onTimeDeparturePct,
-                  %s AS avgDepartureDelayMinutes
+                   SUM(delayed_departures) AS "delayedDepartures",
+                   SUM(cancelled_flights) AS "cancelledFlights",
+                   %s AS "onTimeDeparturePct",
+                   %s AS "avgDepartureDelayMinutes"
                 FROM airport_delay_daily %s
                 GROUP BY airline ORDER BY flights DESC, airline
                 """.formatted(PCT, AVG_DEPARTURE, WHERE);
@@ -302,10 +302,10 @@ public final class AirportApi {
         Filter filter = readFilter(exchange);
         if (filter == null) return;
         String sql = """
-                SELECT WEEKDAY(flight_date) + 1 AS dow,
+                 SELECT EXTRACT(ISODOW FROM flight_date)::int AS dow,
                   SUM(flights) AS flights,
-                  SUM(delayed_departures) AS delayedDepartures,
-                  %s AS onTimeDeparturePct
+                   SUM(delayed_departures) AS "delayedDepartures",
+                   %s AS "onTimeDeparturePct"
                 FROM airport_delay_daily %s
                 GROUP BY dow ORDER BY dow
                 """.formatted(PCT, WHERE);
@@ -398,7 +398,7 @@ public final class AirportApi {
     private static void setNullableString(PreparedStatement statement, int index, String value)
             throws SQLException {
         if (value == null) statement.setNull(index, java.sql.Types.DATE);
-        else statement.setString(index, value);
+        else statement.setDate(index, java.sql.Date.valueOf(value));
     }
 
     private static long integer(Object value) {

@@ -4,12 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
-    "build": "node ./build.mjs",
-    "start": "node --enable-source-maps ./dist/index.mjs",
-    "backfill:bts": "node --enable-source-maps ./dist/backfill-bts.mjs",
+    "dev": "pnpm run java:build && pnpm run java:start",
+    "build": "pnpm run java:build",
+    "start": "pnpm run java:start",
+    "legacy:build": "node ./build.mjs",
+    "legacy:start": "node --enable-source-maps ./dist/index.mjs",
+    "legacy:backfill:bts": "node --enable-source-maps ./dist/backfill-bts.mjs",
     "java:build": "cd java && mvn -B -q package",
-    "java:migrate": "cd java && mvn -B -q package && java -jar target/airport-delay-api-1.0.0.jar migrate",
     "java:start": "cd java && java -jar target/airport-delay-api-1.0.0.jar",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

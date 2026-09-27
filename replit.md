@@ -11,7 +11,7 @@ Explore official BTS flight delay trends for 32 U.S. departure airports using a 
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
-- A Java/MySQL API is staged alongside the live Node/PostgreSQL API. See `docs/java-mysql-migration.md` for external MySQL setup, secrets, data-copy commands, and the verified cutover sequence. Do not switch the live API before MySQL is connected and the copy is checked.
+- The live dashboard uses its existing React frontend and a Java API backed by the existing PostgreSQL BTS tables. See `docs/java-postgresql.md` for run commands and the non-destructive backend cutover.
 
 ## Stack
 

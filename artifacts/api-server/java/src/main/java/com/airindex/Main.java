@@ -3,12 +3,13 @@ package com.airindex;
 import com.sun.net.httpserver.HttpServer;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
+import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
@@ -16,37 +17,22 @@ public final class Main {
     private Main() {}
 
     public static void main(String[] args) throws Exception {
-        String url = required("MYSQL_JDBC_URL");
-        if (!url.startsWith("jdbc:mysql://")) {
-            throw new IllegalArgumentException("MYSQL_JDBC_URL must be a jdbc:mysql:// URL");
-        }
-        URI location = URI.create(url.substring("jdbc:".length()));
-        String host = location.getHost();
-        if (host == null) throw new IllegalArgumentException("MYSQL_JDBC_URL needs a valid host");
-        boolean local = host.equalsIgnoreCase("localhost") || host.equals("127.0.0.1")
-                || host.equals("::1");
-        if (!local && (location.getRawQuery() == null ||
-                !location.getRawQuery().matches("(?i)(?:^|.*&)sslMode=VERIFY_IDENTITY(?:&.*|$)"))) {
-            throw new IllegalArgumentException(
-                    "Remote MySQL connections require sslMode=VERIFY_IDENTITY and a trusted server CA");
-        }
+        if (args.length != 0) throw new IllegalArgumentException("Usage: java -jar airport-delay-api-1.0.0.jar");
+        ConnectionSettings settings = connectionSettings(required("DATABASE_URL"));
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(url);
-        config.setUsername(required("MYSQL_USER"));
-        config.setPassword(required("MYSQL_PASSWORD"));
+        config.setJdbcUrl(settings.url());
+        if (settings.properties().containsKey("user")) {
+            config.setUsername(settings.properties().getProperty("user"));
+        }
+        if (settings.properties().containsKey("password")) {
+            config.setPassword(settings.properties().getProperty("password"));
+        }
         config.setMaximumPoolSize(10);
         config.setConnectionTimeout(15_000);
-        config.setConnectionInitSql("SET time_zone = '+00:00'");
-        config.setPoolName("airindex-mysql");
+        config.setConnectionInitSql("SET TIME ZONE 'UTC'");
+        config.setPoolName("airindex-postgresql");
         try (HikariDataSource database = new HikariDataSource(config)) {
-            initializeSchema(database);
-            if (args.length == 1 && "migrate".equals(args[0])) {
-                DataMigrator.migrate(database);
-                return;
-            }
-            if (args.length != 0) {
-                throw new IllegalArgumentException("Usage: java -jar airport-delay-api-1.0.0.jar [migrate]");
-            }
+            verifyExistingTables(database);
             int port = Integer.parseInt(required("PORT"));
             HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
             BtsSync sync = new BtsSync(database);
@@ -72,17 +58,43 @@ public final class Main {
         return value;
     }
 
-    private static void initializeSchema(HikariDataSource database) throws Exception {
-        String sql;
-        try (var stream = Main.class.getResourceAsStream("/schema.sql")) {
-            if (stream == null) throw new IOException("Missing schema.sql resource");
-            sql = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+    private record ConnectionSettings(String url, Properties properties) {}
+
+    private static ConnectionSettings connectionSettings(String value) {
+        if (value.startsWith("jdbc:postgresql://")) {
+            return new ConnectionSettings(value, new Properties());
         }
+        URI uri = URI.create(value);
+        if (!"postgres".equalsIgnoreCase(uri.getScheme())
+                && !"postgresql".equalsIgnoreCase(uri.getScheme())) {
+            throw new IllegalArgumentException("DATABASE_URL must be a PostgreSQL URL");
+        }
+        if (uri.getHost() == null || uri.getRawPath() == null || uri.getRawPath().length() < 2) {
+            throw new IllegalArgumentException("DATABASE_URL needs a host and database name");
+        }
+        StringBuilder jdbc = new StringBuilder("jdbc:postgresql://").append(uri.getHost());
+        if (uri.getPort() >= 0) jdbc.append(':').append(uri.getPort());
+        jdbc.append(uri.getRawPath());
+        if (uri.getRawQuery() != null) jdbc.append('?').append(uri.getRawQuery());
+        Properties properties = new Properties();
+        if (uri.getRawUserInfo() != null) {
+            String[] credentials = uri.getRawUserInfo().split(":", 2);
+            properties.setProperty("user", decode(credentials[0]));
+            if (credentials.length > 1) properties.setProperty("password", decode(credentials[1]));
+        }
+        return new ConnectionSettings(jdbc.toString(), properties);
+    }
+
+    private static String decode(String value) {
+        // URLDecoder treats a literal '+' as a space; URI userinfo does not.
+        return URLDecoder.decode(value.replace("+", "%2B"), StandardCharsets.UTF_8);
+    }
+
+    private static void verifyExistingTables(HikariDataSource database) throws Exception {
         try (Connection connection = database.getConnection();
              Statement statement = connection.createStatement()) {
-            for (String command : sql.split(";")) {
-                if (!command.isBlank()) statement.execute(command.trim());
-            }
+            statement.executeQuery("SELECT 1 FROM airport_delay_daily LIMIT 1").close();
+            statement.executeQuery("SELECT 1 FROM bts_imported_months LIMIT 1").close();
         }
     }
 }
