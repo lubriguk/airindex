@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "4-eCQLRoz5YVJTEVAcTR4"
+uri = "file://docs/er-diagram.svg"
+type = "image"
+title = "Airport delay database ER diagram"
+description = "Two PostgreSQL tables, all columns and keys, the airport/date index, and the logical month relationship (not a foreign key)."
+logical_id = "6e04602a-8caa-47b1-941c-9c08474c64d9"
+content_hash = "sha256:91870986d154ae0f9f5eaf2bc9359d10b24ec9eedb832d2f83ec629b7eb2e7b4"
+size = 6775
+mtime_ms = 1790498155274
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:d5eab7e0-1f61-49f2-9991-132d2ea3664a/6e04602a-8caa-47b1-941c-9c08474c64d9/1047da72-d1af-46ee-ac8d-c7a021956555"
+storage_version_token = "1790498184235506"
+content_type = "image/svg+xml"
