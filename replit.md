@@ -11,7 +11,7 @@ Explore official BTS flight delay trends for 32 U.S. departure airports using a 
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
-- The live dashboard uses its existing React frontend and a Java API backed by the existing PostgreSQL BTS tables. See `docs/java-postgresql.md` for run commands and the non-destructive backend cutover.
+- The live dashboard uses plain HTML, CSS and browser JavaScript with a Java API backed by the existing PostgreSQL BTS tables. See `docs/java-postgresql.md` for run commands and backend context.
 
 ## Stack
 
@@ -24,7 +24,7 @@ Explore official BTS flight delay trends for 32 U.S. departure airports using a 
 
 ## Where things live
 
-- `artifacts/airport-delay-dashboard/` — React dashboard, charts, airport/date controls
+- `artifacts/airport-delay-dashboard/` — vanilla JavaScript dashboard, native SVG charts, airport/date controls
 - `artifacts/api-server/src/routes/airport-delays.ts` — parameterized SQL analytics API
 - `artifacts/api-server/src/lib/bts-import.ts` — official BTS ZIP ingestion
 - `lib/db/src/schema/airport-delays.ts` — SQL fact and import-coverage tables
