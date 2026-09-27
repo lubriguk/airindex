@@ -31,7 +31,7 @@ function monthBefore(year: number, month: number, offset: number) {
   return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 };
 }
 
-async function findLatestMonth() {
+export async function findLatestMonth() {
   const today = new Date();
   for (let offset = 1; offset <= 12; offset++) {
     const period = monthBefore(today.getUTCFullYear(), today.getUTCMonth() + 1, offset);
@@ -169,7 +169,7 @@ function emptyAggregate(date: string, airport: string, airline: string): InsertA
   };
 }
 
-async function importMonth(year: number, month: number) {
+export async function importMonth(year: number, month: number) {
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
   const [existing] = await db.select({ month: btsImportedMonthsTable.month })
     .from(btsImportedMonthsTable).where(eq(btsImportedMonthsTable.month, monthKey));
