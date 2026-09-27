@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Airport Delay Dashboard"
+description = "Explore BTS on-time airline performance data for selected U.S. airports. Filter by airport and date to compare delay trends, cancellation rates, and contributing causes, backed by a queryable SQL dataset."
+version = "1.0.0"
+id = "artifacts/airport-delay-dashboard"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25443
+
+[services.development]
+run = "pnpm --filter @workspace/airport-delay-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/airport-delay-dashboard", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/airport-delay-dashboard/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25443"
+BASE_PATH = "/"
