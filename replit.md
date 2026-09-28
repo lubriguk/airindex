@@ -30,7 +30,7 @@ Explore official BTS flight delay trends for 32 U.S. departure airports using a 
 
 - Use BTS Reporting Carrier On-Time Performance monthly ZIPs rather than a third-party dataset. They are public and need no API key.
 - Store daily airport/carrier aggregates in PostgreSQL rather than millions of individual flight rows. This keeps chart queries fast while preserving the metrics used by this dashboard.
-- Reconcile missing published BTS months on startup and daily at 05:00 UTC. The daily check guarantees a run every fifth and retries when BTS publishes late; imports are transactional and retain prior months.
+- Reconcile missing published BTS months on startup and daily at 05:00 UTC while the API runs. The daily schedule includes the fifth of each month and retries when BTS publishes late; imports are transactional and retain prior months.
 - Fetch the official FAA NAS Status XML feed at startup and every 15 minutes while the API process is running. Store successful snapshots and event rows separately from BTS history.
 - An airport selects **originating flights**. Departure metrics describe that airport; arrival metrics and BTS cause attribution describe those flights at their destinations.
 
