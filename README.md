@@ -93,7 +93,7 @@ Supported airports: `ATL`, `DFW`, `DEN`, `ORD`, `LAX`, `JFK`, `LGA`, `EWR`, `SFO
 
 ## How it works
 
-A Java service downloads official BTS monthly flight data, keeps the fields this app needs, and stores daily totals by airport and airline in PostgreSQL. It checks daily for newly published months.
+A Java service downloads official BTS monthly flight data, keeps the fields this app needs, and stores daily totals by airport and airline in PostgreSQL. It checks for newly published months on startup and at 05:00 UTC each day while running—not only on the 5th of the month.
 
 The same service checks the FAA airport-status feed about every 15 minutes while running and saves each successful result. If the feed is unavailable or out of date, the dashboard says so instead of showing old information as current.
 
@@ -130,4 +130,4 @@ Ideas for expanding the project:
 
 ## How I built it
 
-This project was built primarily with AI coding tools on Replit. I chose the idea, the data sources, and the features, directed the build, reviewed and tested the results, and analyzed the findings.
+This project was built primarily with AI coding tools on Replit. I chose the idea, the data sources, and the features, and directed the build.
