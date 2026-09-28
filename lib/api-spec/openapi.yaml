@@ -52,6 +52,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DataStatus"
+  /nas-status:
+    get:
+      operationId: getFaaNasStatus
+      tags: [airports]
+      summary: Latest archived snapshot of FAA airport status advisories
+      description: >-
+        Reads the most recent successfully stored snapshot from the FAA National
+        Airspace System Status XML feed. The Java API records a new snapshot
+        every 15 minutes while running. Historical snapshots include events for
+        every airport in the feed; this response includes only airports
+        selectable in the dashboard. Event reason text must be read as written:
+        a restriction may apply only to some aircraft and is not necessarily a
+        full-airport closure. A stale snapshot returns an empty affectedAirports
+        list and must not be presented as an all-clear.
+      responses:
+        "200":
+          description: Current, stale, or not-yet-available FAA snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FaaNasStatus"
+        "400":
+          description: Query parameters are not accepted
   /delays/hub-ranking:
     get:
       operationId: getHubDelayRanking
@@ -324,6 +347,42 @@ components:
           type: array
           items: { type: string }
         importing: { type: boolean }
+    FaaNasStatus:
+      type: object
+      required: [status, checkedAt, sourceUpdatedAt, sourceUrl, affectedAirportCount, affectedAirports]
+      properties:
+        status:
+          type: string
+          enum: [current, stale, unavailable]
+          description: Current reflects a successfully fetched source snapshot under 30 minutes old
+        checkedAt: { type: ["string", "null"], format: date-time, description: Last successful feed fetch }
+        sourceUpdatedAt: { type: ["string", "null"], format: date-time, description: FAA source timestamp }
+        sourceUrl: { type: string, format: uri }
+        affectedAirportCount: { type: integer, description: Airports with current FAA advisories among the supported 32 }
+        affectedAirports:
+          type: array
+          description: Empty when stale or unavailable; never signals an all-clear in those states
+          items:
+            $ref: "#/components/schemas/FaaNasAirportStatus"
+    FaaNasAirportStatus:
+      type: object
+      required: [airport, events]
+      properties:
+        airport: { type: string }
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/FaaNasEvent"
+    FaaNasEvent:
+      type: object
+      required: [type, reason, averageDelay, maximumDelay, start, reopen]
+      properties:
+        type: { type: string, description: FAA category label }
+        reason: { type: ["string", "null"], description: FAA restriction text; do not imply it applies to all traffic unless stated }
+        averageDelay: { type: ["string", "null"] }
+        maximumDelay: { type: ["string", "null"] }
+        start: { type: ["string", "null"], description: FAA-provided start text in UTC }
+        reopen: { type: ["string", "null"], description: FAA-provided reopening text in UTC }
     HubDelayRank:
       type: object
       required: [airport, flights, departureFlights, delayedDepartures, delayedDeparturePct, arrivalFlights, nasDelayMinutes, attributedDelayMinutes, nasMinutesPerArrival, nasAttributedSharePct]

@@ -36,14 +36,18 @@ public final class Main {
             int port = Integer.parseInt(required("PORT"));
             HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
             BtsSync sync = new BtsSync(database);
-            new AirportApi(database, sync::isImporting).register(server);
+            FaaNasSync faaNasSync = new FaaNasSync(database);
+            faaNasSync.verifySchema();
+            new AirportApi(database, sync::isImporting, faaNasSync).register(server);
             server.setExecutor(Executors.newFixedThreadPool(12));
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 server.stop(2);
                 sync.close();
+                faaNasSync.close();
             }));
             server.start();
             sync.start();
+            faaNasSync.start();
             System.out.println("Java airport API listening on " + port);
             // HttpServer runs on its own threads; keep main alive until shutdown.
             new CountDownLatch(1).await();

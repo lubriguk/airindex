@@ -113,17 +113,20 @@ public final class AirportApi {
 
     private final DataSource dataSource;
     private final BooleanSupplier importing;
+    private final FaaNasSync faaNasSync;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public AirportApi(DataSource dataSource, BooleanSupplier importing) {
+    public AirportApi(DataSource dataSource, BooleanSupplier importing, FaaNasSync faaNasSync) {
         this.dataSource = dataSource;
         this.importing = importing;
+        this.faaNasSync = faaNasSync;
     }
 
     public void register(HttpServer server) {
         register(server, "/api/healthz", this::health);
         register(server, "/api/airports", this::airports);
         register(server, "/api/data-status", this::dataStatus);
+        register(server, "/api/nas-status", this::nasStatus);
         register(server, "/api/delays/hub-ranking", this::hubRanking);
         register(server, "/api/delays/hub-airlines", this::hubAirlines);
         register(server, "/api/delays/airline-hubs", this::airlineHubs);
@@ -170,6 +173,14 @@ public final class AirportApi {
 
     private void health(HttpExchange exchange) throws IOException {
         sendJson(exchange, 200, Map.of("status", "ok"));
+    }
+
+    private void nasStatus(HttpExchange exchange) throws Exception {
+        if (exchange.getRequestURI().getRawQuery() != null) {
+            sendJson(exchange, 400, Map.of("error", "This endpoint does not accept query parameters."));
+            return;
+        }
+        sendJson(exchange, 200, faaNasSync.status());
     }
 
     private void airports(HttpExchange exchange) throws IOException {
@@ -770,4 +781,8 @@ public final class AirportApi {
                                 long delayedDepartures, BigDecimal delayedDeparturePct) {}
 
     private record DateRange(String from, String to) {}
+
+    static List<String> supportedAirportCodes() {
+        return AIRPORT_CODES;
+    }
 }

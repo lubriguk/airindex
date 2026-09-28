@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1450" height="940" viewBox="0 0 1450 940" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1650" viewBox="0 0 1680 1650" role="img" aria-labelledby="title description">
   <title id="title">Airport Delay Dashboard PostgreSQL entity relationship diagram</title>
-  <desc id="description">Two tables: airport_delay_daily with a composite primary key of flight_date, airport and airline, and bts_imported_months with primary key month. A dotted line represents a derived calendar-month relationship, not a foreign key.</desc>
+  <desc id="description">Four PostgreSQL tables: BTS daily flight aggregates and import-month bookkeeping, plus FAA NAS Status poll snapshots and their event records. The FAA event snapshot foreign key is enforced with cascading deletes; the BTS calendar-month association is derived and is not a foreign key.</desc>
   <style>
     .bg { fill: #f0f5f5; }
     .card { fill: #fff; stroke: #cbdcdd; stroke-width: 1.5; }
@@ -8,77 +8,116 @@
     .muted { fill: #5c7880; }
     .teal { fill: #187e83; }
     .amber { fill: #9d671f; }
-    .head { font: 700 31px/1.2 Arial, Helvetica, sans-serif; }
-    .sub { font: 16px Arial, Helvetica, sans-serif; }
-    .table { font: 700 23px Arial, Helvetica, sans-serif; }
-    .mono { font: 15px "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
-    .type { font: 14px "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
-    .small { font: 12px Arial, Helvetica, sans-serif; }
-    .label { font: 700 12px Arial, Helvetica, sans-serif; letter-spacing: 1.4px; }
+    .head { font: 700 35px Arial, Helvetica, sans-serif; }
+    .sub { font: 18px Arial, Helvetica, sans-serif; }
+    .table { font: 700 24px Arial, Helvetica, sans-serif; }
+    .mono { font: 18px "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    .type { font: 16px "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    .small { font: 15px Arial, Helvetica, sans-serif; }
+    .label { font: 700 14px Arial, Helvetica, sans-serif; letter-spacing: 1.2px; }
     .rule { stroke: #e1e9e9; stroke-width: 1; }
   </style>
 
-  <rect class="bg" width="1450" height="940"/>
-  <rect x="50" y="39" width="200" height="29" rx="14" fill="#dbebea"/>
-  <text x="67" y="58" class="label teal">POSTGRESQL · PUBLIC</text>
-  <text x="50" y="118" class="head ink">Airport delay database</text>
-  <text x="50" y="149" class="sub muted">Entity relationship diagram · BTS Reporting Carrier On-Time Performance</text>
+  <rect class="bg" width="1680" height="1650"/>
+  <rect x="50" y="36" width="220" height="31" rx="15" fill="#dbebea"/>
+  <text x="69" y="57" class="label teal">POSTGRESQL · PUBLIC</text>
+  <text x="50" y="119" class="head ink">Airport delay database</text>
+  <text x="50" y="154" class="sub muted">BTS flight-history aggregates and separately captured FAA operational-status snapshots</text>
 
-  <rect x="50" y="196" width="810" height="585" rx="14" class="card"/>
-  <rect x="50" y="196" width="810" height="76" rx="14" fill="#143747"/>
-  <rect x="50" y="256" width="810" height="16" fill="#143747"/>
-  <text x="82" y="236" class="table" fill="#fff">airport_delay_daily</text>
-  <text x="82" y="258" class="small" fill="#b8d9da">FACT TABLE · ONE ROW PER ORIGIN AIRPORT / DATE / REPORTING CARRIER</text>
+  <rect x="50" y="210" width="760" height="690" rx="14" class="card"/>
+  <rect x="50" y="210" width="760" height="76" rx="14" fill="#143747"/>
+  <rect x="50" y="270" width="760" height="16" fill="#143747"/>
+  <text x="82" y="251" class="table" fill="#fff">airport_delay_daily</text>
+  <text x="82" y="275" class="small" fill="#b8d9da">BTS FACT · ORIGIN AIRPORT / DATE / REPORTING CARRIER</text>
+  <text x="82" y="316" class="label teal">COMPOSITE PRIMARY KEY · ALL REQUIRED</text>
+  <text x="83" y="347" class="mono ink">flight_date</text><text x="574" y="347" class="type muted">date</text><rect x="742" y="331" width="42" height="21" rx="4" fill="#dbebea"/><text x="750" y="347" class="small teal">PK</text>
+  <text x="83" y="374" class="mono ink">airport</text><text x="574" y="374" class="type muted">text</text><rect x="742" y="358" width="42" height="21" rx="4" fill="#dbebea"/><text x="750" y="374" class="small teal">PK</text>
+  <text x="83" y="401" class="mono ink">airline</text><text x="574" y="401" class="type muted">text</text><rect x="742" y="385" width="42" height="21" rx="4" fill="#dbebea"/><text x="750" y="401" class="small teal">PK</text>
+  <line x1="82" y1="416" x2="780" y2="416" class="rule"/>
+  <text x="82" y="445" class="label muted">METRICS · ALL INTEGER NOT NULL</text>
+  <text x="83" y="477" class="mono ink">flights</text><text x="574" y="477" class="type muted">integer</text>
+  <text x="83" y="505" class="mono ink">departure_flights</text><text x="574" y="505" class="type muted">integer</text>
+  <text x="83" y="533" class="mono ink">arrival_flights</text><text x="574" y="533" class="type muted">integer</text>
+  <text x="83" y="561" class="mono ink">delayed_departures</text><text x="574" y="561" class="type muted">integer</text>
+  <text x="83" y="589" class="mono ink">cancelled_flights</text><text x="574" y="589" class="type muted">integer</text>
+  <text x="83" y="617" class="mono ink">diverted_flights</text><text x="574" y="617" class="type muted">integer</text>
+  <text x="83" y="645" class="mono ink">total_dep_delay_minutes</text><text x="574" y="645" class="type muted">integer</text>
+  <text x="83" y="673" class="mono ink">total_arr_delay_minutes</text><text x="574" y="673" class="type muted">integer</text>
+  <text x="83" y="701" class="mono ink">carrier_delay_minutes</text><text x="574" y="701" class="type muted">integer</text>
+  <text x="83" y="729" class="mono ink">weather_delay_minutes</text><text x="574" y="729" class="type muted">integer</text>
+  <text x="83" y="757" class="mono ink">nas_delay_minutes</text><text x="574" y="757" class="type muted">integer</text>
+  <text x="83" y="785" class="mono ink">security_delay_minutes</text><text x="574" y="785" class="type muted">integer</text>
+  <text x="83" y="813" class="mono ink">late_aircraft_delay_minutes</text><text x="574" y="813" class="type muted">integer</text>
+  <line x1="82" y1="833" x2="780" y2="833" class="rule"/>
+  <text x="82" y="866" class="small muted">INDEX  airport_delay_airport_date_idx (airport, flight_date)</text>
 
-  <text x="82" y="297" class="label teal">COMPOSITE PRIMARY KEY</text>
-  <text x="83" y="325" class="mono ink">flight_date</text><text x="710" y="325" class="type muted">date</text>
-  <text x="83" y="351" class="mono ink">airport</text><text x="710" y="351" class="type muted">text</text>
-  <text x="83" y="377" class="mono ink">airline</text><text x="710" y="377" class="type muted">text</text>
-  <rect x="803" y="309" width="35" height="19" rx="4" fill="#dbebea"/><text x="809" y="323" class="small teal">PK</text>
-  <rect x="803" y="335" width="35" height="19" rx="4" fill="#dbebea"/><text x="809" y="349" class="small teal">PK</text>
-  <rect x="803" y="361" width="35" height="19" rx="4" fill="#dbebea"/><text x="809" y="375" class="small teal">PK</text>
-  <line x1="82" y1="391" x2="828" y2="391" class="rule"/>
+  <rect x="980" y="210" width="650" height="350" rx="14" class="card"/>
+  <rect x="980" y="210" width="650" height="76" rx="14" fill="#187e83"/>
+  <rect x="980" y="270" width="650" height="16" fill="#187e83"/>
+  <text x="1012" y="251" class="table" fill="#fff">bts_imported_months</text>
+  <text x="1012" y="275" class="small" fill="#d1efed">BTS IMPORT BOOKKEEPING · ONE ROW PER MONTH</text>
+  <text x="1012" y="326" class="label teal">COLUMNS</text>
+  <text x="1013" y="361" class="mono ink">month</text><text x="1442" y="361" class="type muted">text</text><rect x="1569" y="345" width="42" height="21" rx="4" fill="#dbebea"/><text x="1577" y="361" class="small teal">PK</text>
+  <text x="1013" y="393" class="mono ink">flight_count</text><text x="1442" y="393" class="type muted">integer</text>
+  <text x="1013" y="425" class="mono ink">imported_at</text><text x="1442" y="425" class="type muted">timestamptz</text>
+  <line x1="1012" y1="444" x2="1600" y2="444" class="rule"/>
+  <text x="1012" y="475" class="small muted">month is stored as YYYY-MM; imported_at defaults to now().</text>
+  <text x="1012" y="501" class="small amber">Month-to-fact association is derived, not enforced.</text>
+  <text x="1012" y="531" class="small muted">No foreign key is defined to airport_delay_daily.</text>
 
-  <text x="82" y="417" class="label muted">AGGREGATED METRICS · ALL INTEGER</text>
-  <text x="83" y="446" class="mono ink">flights</text><text x="710" y="446" class="type muted">integer</text>
-  <text x="83" y="469" class="mono ink">departure_flights</text><text x="710" y="469" class="type muted">integer</text>
-  <text x="83" y="492" class="mono ink">arrival_flights</text><text x="710" y="492" class="type muted">integer</text>
-  <text x="83" y="515" class="mono ink">delayed_departures</text><text x="710" y="515" class="type muted">integer</text>
-  <text x="83" y="538" class="mono ink">cancelled_flights</text><text x="710" y="538" class="type muted">integer</text>
-  <text x="83" y="561" class="mono ink">diverted_flights</text><text x="710" y="561" class="type muted">integer</text>
-  <text x="83" y="584" class="mono ink">total_dep_delay_minutes</text><text x="710" y="584" class="type muted">integer</text>
-  <text x="83" y="607" class="mono ink">total_arr_delay_minutes</text><text x="710" y="607" class="type muted">integer</text>
-  <text x="83" y="630" class="mono ink">carrier_delay_minutes</text><text x="710" y="630" class="type muted">integer</text>
-  <text x="83" y="653" class="mono ink">weather_delay_minutes</text><text x="710" y="653" class="type muted">integer</text>
-  <text x="83" y="676" class="mono ink">nas_delay_minutes</text><text x="710" y="676" class="type muted">integer</text>
-  <text x="83" y="699" class="mono ink">security_delay_minutes</text><text x="710" y="699" class="type muted">integer</text>
-  <text x="83" y="722" class="mono ink">late_aircraft_delay_minutes</text><text x="710" y="722" class="type muted">integer</text>
-  <line x1="82" y1="739" x2="828" y2="739" class="rule"/>
-  <text x="82" y="761" class="small muted">INDEX  airport_delay_airport_date_idx  (airport, flight_date)</text>
+  <path d="M980 363 H810" fill="none" stroke="#c18a39" stroke-width="2.5" stroke-dasharray="7 7"/>
+  <circle cx="980" cy="363" r="5" fill="#c18a39"/><circle cx="810" cy="363" r="5" fill="#c18a39"/>
+  <rect x="811" y="300" width="167" height="49" rx="8" fill="#f0f5f5"/>
+  <text x="824" y="321" class="small amber">YYYY-MM date</text>
+  <text x="824" y="341" class="small amber">match only</text>
 
-  <path d="M860 337 H1018" fill="none" stroke="#c18a39" stroke-width="2.5" stroke-dasharray="6 6"/>
-  <circle cx="860" cy="337" r="5" fill="#c18a39"/><circle cx="1018" cy="337" r="5" fill="#c18a39"/>
-  <text x="890" y="292" class="small amber">calendar month</text>
-  <text x="895" y="309" class="small amber">logical only</text>
+  <rect x="50" y="975" width="760" height="485" rx="14" class="card"/>
+  <rect x="50" y="975" width="760" height="76" rx="14" fill="#143747"/>
+  <rect x="50" y="1035" width="760" height="16" fill="#143747"/>
+  <text x="82" y="1016" class="table" fill="#fff">faa_nas_events</text>
+  <text x="82" y="1040" class="small" fill="#b8d9da">FAA EVENT DETAILS · ONE ROW PER OBSERVED AIRPORT EVENT</text>
+  <text x="82" y="1080" class="label teal">COLUMNS · REQUIRED UNLESS MARKED NULLABLE</text>
+  <text x="83" y="1111" class="mono ink">id</text><text x="560" y="1111" class="type muted">bigserial</text><rect x="742" y="1095" width="42" height="21" rx="4" fill="#dbebea"/><text x="750" y="1111" class="small teal">PK</text>
+  <text x="83" y="1140" class="mono ink">snapshot_id</text><text x="560" y="1140" class="type muted">bigint</text><rect x="728" y="1124" width="56" height="21" rx="4" fill="#dbebea"/><text x="733" y="1140" class="small teal">FK</text>
+  <text x="83" y="1169" class="mono ink">airport</text><text x="560" y="1169" class="type muted">varchar(4)</text>
+  <text x="83" y="1198" class="mono ink">event_type</text><text x="560" y="1198" class="type muted">text</text>
+  <text x="83" y="1227" class="mono ink">reason</text><text x="560" y="1227" class="type muted">text</text><text x="650" y="1227" class="small amber">nullable</text>
+  <text x="83" y="1256" class="mono ink">average_delay</text><text x="560" y="1256" class="type muted">text</text><text x="650" y="1256" class="small amber">nullable</text>
+  <text x="83" y="1285" class="mono ink">maximum_delay</text><text x="560" y="1285" class="type muted">text</text><text x="650" y="1285" class="small amber">nullable</text>
+  <text x="83" y="1314" class="mono ink">start_text</text><text x="560" y="1314" class="type muted">text</text><text x="650" y="1314" class="small amber">nullable</text>
+  <text x="83" y="1343" class="mono ink">reopen_text</text><text x="560" y="1343" class="type muted">text</text><text x="650" y="1343" class="small amber">nullable</text>
+  <line x1="82" y1="1362" x2="780" y2="1362" class="rule"/>
+  <text x="82" y="1392" class="small muted">FK faa_nas_snapshots(id) · ON DELETE CASCADE</text>
+  <text x="82" y="1422" class="small muted">INDEX faa_nas_events_snapshot_airport_idx (snapshot_id, airport)</text>
 
-  <rect x="1018" y="196" width="382" height="350" rx="14" class="card"/>
-  <rect x="1018" y="196" width="382" height="76" rx="14" fill="#187e83"/>
-  <rect x="1018" y="256" width="382" height="16" fill="#187e83"/>
-  <text x="1050" y="236" class="table" fill="#fff">bts_imported_months</text>
-  <text x="1050" y="258" class="small" fill="#d1efed">IMPORT BOOKKEEPING · ONE ROW PER MONTH</text>
-  <text x="1050" y="298" class="label teal">COLUMNS</text>
-  <text x="1050" y="326" class="mono ink">month</text><text x="1301" y="326" class="type muted">text</text>
-  <rect x="1360" y="310" width="27" height="19" rx="4" fill="#dbebea"/><text x="1365" y="324" class="small teal">PK</text>
-  <text x="1050" y="355" class="mono ink">flight_count</text><text x="1310" y="355" class="type muted">int</text>
-  <text x="1050" y="384" class="mono ink">imported_at</text><text x="1250" y="384" class="type muted">timestamptz</text>
-  <line x1="1050" y1="405" x2="1368" y2="405" class="rule"/>
-  <text x="1050" y="434" class="small muted">month format: YYYY-MM</text>
-  <text x="1050" y="459" class="small muted">imported_at defaults to now()</text>
-  <text x="1050" y="484" class="small muted">flight_count counts selected airports</text>
-  <text x="1050" y="520" class="small amber">No foreign key is defined.</text>
+  <rect x="980" y="975" width="650" height="400" rx="14" class="card"/>
+  <rect x="980" y="975" width="650" height="76" rx="14" fill="#187e83"/>
+  <rect x="980" y="1035" width="650" height="16" fill="#187e83"/>
+  <text x="1012" y="1016" class="table" fill="#fff">faa_nas_snapshots</text>
+  <text x="1012" y="1040" class="small" fill="#d1efed">SUCCESSFUL OFFICIAL FAA FEED POLLS</text>
+  <text x="1012" y="1080" class="label teal">COLUMNS · REQUIRED UNLESS MARKED NULLABLE</text>
+  <text x="1013" y="1111" class="mono ink">id</text><text x="1442" y="1111" class="type muted">bigserial</text><rect x="1569" y="1095" width="42" height="21" rx="4" fill="#dbebea"/><text x="1577" y="1111" class="small teal">PK</text>
+  <text x="1013" y="1140" class="mono ink">fetched_at</text><text x="1442" y="1140" class="type muted">timestamptz</text>
+  <text x="1013" y="1169" class="mono ink">source_updated_at</text><text x="1442" y="1169" class="type muted">timestamptz</text><text x="1534" y="1193" class="small amber">nullable</text>
+  <text x="1013" y="1198" class="mono ink">event_count</text><text x="1442" y="1198" class="type muted">integer</text>
+  <line x1="1012" y1="1220" x2="1600" y2="1220" class="rule"/>
+  <text x="1012" y="1251" class="small muted">fetched_at defaults to now(); event_count CHECK (≥ 0), full feed.</text>
+  <text x="1012" y="1280" class="small muted">INDEX faa_nas_snapshots_fetched_at_idx (fetched_at DESC)</text>
+  <text x="1012" y="1311" class="small muted">One snapshot and its child rows commit together.</text>
+  <text x="1012" y="1340" class="small muted">A valid empty feed snapshot is retained as history.</text>
 
-  <rect x="50" y="810" width="1350" height="82" rx="11" fill="#e2eeee"/>
-  <text x="76" y="839" class="label teal">HOW THE TABLES RELATE</text>
-  <text x="76" y="864" class="sub ink">to_char(airport_delay_daily.flight_date, 'YYYY-MM') = bts_imported_months.month</text>
-  <text x="50" y="919" class="small muted">PK = primary key · All columns are NOT NULL · Dotted connector is a derived relationship, not an enforced foreign key.</text>
+  <path d="M810 1140 H885 V1111 H980" fill="none" stroke="#187e83" stroke-width="3"/>
+  <path d="M972 1104 L982 1111 L972 1118" fill="none" stroke="#187e83" stroke-width="3"/>
+  <rect x="811" y="1165" width="165" height="56" rx="8" fill="#f0f5f5"/>
+  <text x="827" y="1187" class="small teal">Enforced FK</text>
+  <text x="827" y="1208" class="small teal">one-to-many</text>
+
+  <rect x="50" y="1510" width="1580" height="98" rx="12" fill="#e2eeee"/>
+  <line x1="82" y1="1552" x2="170" y2="1552" stroke="#187e83" stroke-width="3"/>
+  <path d="M162 1545 L172 1552 L162 1559" fill="none" stroke="#187e83" stroke-width="3"/>
+  <text x="185" y="1557" class="small ink">solid arrow = enforced foreign key</text>
+  <line x1="520" y1="1552" x2="608" y2="1552" stroke="#c18a39" stroke-width="2.5" stroke-dasharray="7 7"/>
+  <text x="623" y="1557" class="small ink">dotted connector = derived BTS month match, not a database constraint</text>
+  <text x="82" y="1587" class="small muted">The FAA tables retain successful feed history; the current API view hides stale events. FAA status is operational data, not the BTS historical flight-date range.</text>
+  <text x="50" y="1632" class="small muted">PK = primary key · FK = foreign key · PK columns and all explicitly required columns are NOT NULL.</text>
 </svg>

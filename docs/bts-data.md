@@ -6,7 +6,7 @@ For a visual overview of the tables and their keys, see the [database schema and
 
 This dashboard imports the official [BTS Airline On-Time Statistics](https://www.transtats.bts.gov/ONTIME/) **Reporting Carrier On-Time Performance (1987–present)** monthly public ZIP/CSV files. No key or third-party intermediary is required. BTS publishes these files after the flight month ends; the dashboard is not a live flight tracker.
 
-Only flights **originating** at the 32 supported airports are included. Arrival-delay and cause figures refer to those flights' arrivals at their destinations, not to flights arriving at the selected airport. The database initially loads the latest three published months; on subsequent daily checks it adds newer months and retains older imported data.
+Only flights **originating** at the 32 supported airports are included. Arrival-delay and cause figures refer to those flights' arrivals at their destinations, not to flights arriving at the selected airport. The database initially loads the latest three published months. On startup, the importer reconciles the latest 24 published months; while the API is running, it checks again at 05:00 UTC every day, including the 5th of each month. Checking daily also retries a monthly archive if BTS publishes it after the 5th or a prior download fails. Previously imported months remain available.
 
 The source CSV contains many more fields than the dashboard needs, including `Year`, `Quarter`, `Month`, `FlightDate`, reporting carrier, flight number, origin/destination codes and cities, scheduled and actual local departure/arrival times, taxi times, elapsed time, air time, distance, cancellations, diversions, and multiple diversion fields. The import uses these source fields:
 

@@ -15,8 +15,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,6 +38,7 @@ import java.util.zip.ZipInputStream;
 public final class BtsSync implements AutoCloseable {
     private static final String DOWNLOAD_BASE =
             "https://www.transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_";
+    private static final LocalTime DAILY_SYNC_TIME_UTC = LocalTime.of(5, 0);
     private static final Set<String> AIRPORTS = Set.of(
             "ATL", "DFW", "DEN", "ORD", "LAX", "JFK", "LGA", "EWR",
             "SFO", "SEA", "CLT", "PHX", "MIA", "PHL", "DCA", "IAD",
@@ -79,7 +83,26 @@ public final class BtsSync implements AutoCloseable {
             return thread;
         });
         scheduler = createdScheduler;
-        createdScheduler.scheduleWithFixedDelay(this::syncSafely, 0, 24, TimeUnit.HOURS);
+        // Reconcile immediately on startup, then check at 05:00 UTC every day.
+        // The fifth-of-month check is therefore calendar-aligned, without a 30-day approximation.
+        createdScheduler.execute(this::syncSafely);
+        scheduleNextDailySync(createdScheduler);
+    }
+
+    private void scheduleNextDailySync(ScheduledExecutorService executor) {
+        Instant now = Instant.now();
+        Instant nextRun = now.atZone(ZoneOffset.UTC).toLocalDate()
+                .atTime(DAILY_SYNC_TIME_UTC).toInstant(ZoneOffset.UTC);
+        if (!nextRun.isAfter(now)) {
+            nextRun = nextRun.plus(Duration.ofDays(1));
+        }
+        long delayMillis = Math.max(0, Duration.between(now, nextRun).toMillis());
+        executor.schedule(() -> {
+            syncSafely();
+            if (!executor.isShutdown()) {
+                scheduleNextDailySync(executor);
+            }
+        }, delayMillis, TimeUnit.MILLISECONDS);
     }
 
     public boolean isImporting() {
@@ -129,7 +152,7 @@ public final class BtsSync implements AutoCloseable {
     }
 
     private YearMonth findLatestMonth() throws IOException, InterruptedException {
-        YearMonth candidate = YearMonth.now().minusMonths(1);
+        YearMonth candidate = YearMonth.now(ZoneOffset.UTC).minusMonths(1);
         for (int offset = 0; offset < 12; offset++, candidate = candidate.minusMonths(1)) {
             HttpRequest request = HttpRequest.newBuilder(archiveUri(candidate))
                     .timeout(Duration.ofSeconds(20))

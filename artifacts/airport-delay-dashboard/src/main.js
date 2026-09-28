@@ -38,12 +38,14 @@ const state = {
   departureSort: 'highest', nasSort: 'highest',
   hubOptions: { pending: true }, hubOptionsRequestId: 0,
   hubAirline: '', hubResults: { pending: true }, hubRequestId: 0, hubController: null, hubSort: 'highest',
+  faa: { pending: true }, faaRequestId: 0, faaLastChecked: 0,
 };
 const paths = {
   summary: 'delays/summary', daily: 'delays/daily', carriers: 'delays/carriers',
   causes: 'delays/causes', weekday: 'delays/weekday',
 };
 let ruleInputTimer;
+let dateInputTimer;
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -67,6 +69,123 @@ function dateLabel(value, short = false) {
     ? { month: 'short', day: 'numeric' }
     : { month: 'short', day: 'numeric', year: 'numeric' },
   ).format(new Date(year, month - 1, day));
+}
+
+function coverageBounds() {
+  if (state.status.error || !state.status.data) return null;
+  const first = String(state.status.data.firstDate || '').slice(0, 10);
+  const last = String(state.status.data.lastDate || '').slice(0, 10);
+  const realDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s)
+    && !Number.isNaN(Date.parse(`${s}T00:00:00Z`))
+    && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
+  return realDate(first) && realDate(last) && first <= last ? { first, last } : null;
+}
+
+function validateDatePair(fromId, toId, errorId) {
+  const bounds = coverageBounds();
+  const fromInput = $(fromId);
+  const toInput = $(toId);
+  const from = fromInput.value;
+  const to = toInput.value;
+  const invalidFormat = [fromInput, toInput].some((input) => input.validity.badInput
+    || (input.value && !/^\d{4}-\d{2}-\d{2}$/.test(input.value)));
+  const outside = bounds && [from, to].some((value) => value && (value < bounds.first || value > bounds.last));
+  const inverted = from && to && from > to;
+  const message = invalidFormat ? 'Enter a valid date in the date fields.'
+    : (from || to) && !bounds
+      ? state.status.pending
+        ? 'BTS date coverage is loading. Date-filtered charts are paused until the available range can be verified. Clear the dates to view all available records.'
+        : 'BTS date coverage is unavailable. Cannot verify whether these dates are inside the available range, so date-filtered charts are paused. Clear the dates to view all available records, or retry coverage.'
+    : outside ? `Date outside available range: BTS overall coverage is ${dateLabel(bounds.first)} through ${dateLabel(bounds.last)}. Correct the date or choose All dates.`
+      : inverted ? 'Start date must be on or before end date. Correct the dates or choose All dates.' : '';
+  $(errorId).textContent = message;
+  $(errorId).hidden = !message;
+  fromInput.setAttribute('aria-invalid', String(!!message));
+  toInput.setAttribute('aria-invalid', String(!!message));
+  return !message;
+}
+
+function faaTime(value) {
+  if (!value || Number.isNaN(Date.parse(value))) return null;
+  return `${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(new Date(value))} UTC`;
+}
+
+function validFaaPayload(data) {
+  if (!data || !['current', 'stale', 'unavailable'].includes(data.status)) return false;
+  if (data.status !== 'current') return true;
+  return Number.isInteger(data.affectedAirportCount) && data.affectedAirportCount >= 0
+    && Array.isArray(data.affectedAirports)
+    && data.affectedAirportCount === data.affectedAirports.length
+    && new Set(data.affectedAirports.map((entry) => entry?.airport)).size === data.affectedAirports.length
+    && data.affectedAirports.every((entry) => entry && typeof entry.airport === 'string'
+      && entry.airport.trim() && Array.isArray(entry.events) && entry.events.length
+      && entry.events.every((event) => event && typeof event === 'object'
+        && !Array.isArray(event) && typeof event.type === 'string' && typeof event.reason === 'string'));
+}
+
+function renderFaa() {
+  const { faa } = state;
+  const current = faa.data?.status === 'current';
+  const count = faa.data?.affectedAirportCount;
+  let summary;
+  if (faa.pending) summary = `${loading(74)}`;
+  else if (faa.error || faa.data?.status === 'unavailable' || !faa.data) {
+    summary = `<span class="faa-warning">FAA advisory feed unavailable — current conditions cannot be confirmed.</span><button type="button" data-action="retry-faa" data-testid="button-retry-faa">Try again</button>`;
+  } else if (faa.data.status === 'stale') {
+    summary = `<span class="faa-warning">FAA advisory feed is stale — current conditions cannot be confirmed.</span><button type="button" data-action="retry-faa" data-testid="button-retry-faa">Try again</button>`;
+  } else {
+    summary = `<strong data-testid="text-faa-affected-count">${number(count)}</strong> app-tracked ${count === 1 ? 'airport has' : 'airports have'} current FAA ${count === 1 ? 'advisory' : 'advisories'} (ground stops, delays, closures or other feed events).`;
+  }
+  if (!faa.pending && faa.data) {
+    const checked = faaTime(faa.data.checkedAt);
+    const updated = faaTime(faa.data.sourceUpdatedAt);
+    summary += `<small>${checked ? `Checked ${escapeHtml(checked)}` : 'Check time unavailable'}${updated ? ` · FAA source updated ${escapeHtml(updated)}` : ''}</small>`;
+  }
+  $('faa-detail-summary').innerHTML = summary;
+  $('faa-compare-summary').innerHTML = summary;
+  const code = $('airport').value || 'ATL';
+  const target = $('faa-airport-events');
+  if (faa.pending) { target.innerHTML = ''; return; }
+  target.innerHTML = `<h3>Selected airport / ${escapeHtml(code)}</h3>`;
+  if (!current) {
+    target.innerHTML += `<p class="faa-empty">Current advisory status for ${escapeHtml(code)} cannot be confirmed. Check the official FAA source.</p>`;
+    return;
+  }
+  const events = (Array.isArray(faa.data.affectedAirports) ? faa.data.affectedAirports : [])
+    .find((entry) => entry.airport === code)?.events;
+  if (!Array.isArray(events) || !events.length) {
+    target.innerHTML += `<p class="faa-empty" data-testid="status-faa-airport-clear">No current FAA advisory for ${escapeHtml(code)}. The global count above includes other app-tracked airports.</p>`;
+    return;
+  }
+  const source = faa.data.sourceUrl === 'https://nasstatus.faa.gov/' ? faa.data.sourceUrl : 'https://nasstatus.faa.gov/';
+  target.innerHTML += `<ul class="faa-event-list">${events.map((event, index) => {
+    const optional = [
+      ['Average delay', event.averageDelay], ['Maximum delay', event.maximumDelay],
+      ['Start', event.start], ['Reopen / expected end', event.reopen],
+    ].filter(([, value]) => value != null && String(value).trim() !== '');
+    return `<li class="faa-event" data-testid="card-faa-event-${index}"><span class="faa-event-type">${escapeHtml(event.type || 'FAA advisory')}</span><p><strong>Restriction / reason:</strong> ${escapeHtml(event.reason || 'No reason supplied by FAA.')}</p>${optional.length ? `<dl>${optional.map(([label, value]) => `<dt>${label}</dt><dd>${escapeHtml(value)}</dd>`).join('')}</dl>` : ''}<p><a href="${source}" target="_blank" rel="noopener noreferrer" data-testid="link-faa-event-${index}">View official FAA source ↗</a></p></li>`;
+  }).join('')}</ul>`;
+}
+
+async function loadFaa(force = false) {
+  if (!force && state.faaLastChecked && Date.now() - state.faaLastChecked < 15 * 60 * 1000) {
+    renderFaa();
+    return;
+  }
+  const id = ++state.faaRequestId;
+  state.faa = { pending: true };
+  renderFaa();
+  try {
+    const data = await request('nas-status');
+    if (id !== state.faaRequestId) return;
+    if (!validFaaPayload(data)) throw new Error('Invalid FAA feed');
+    state.faa = { data };
+  } catch {
+    if (id !== state.faaRequestId) return;
+    state.faa = { error: true };
+  }
+  state.faaLastChecked = Date.now();
+  renderFaa();
 }
 
 function loading(height = 220) {
@@ -182,6 +301,12 @@ function populateAirports() {
 function updateCoverage() {
   const { status } = state;
   const data = status.data;
+  const bounds = coverageBounds();
+  const range = bounds ? `Select dates from ${dateLabel(bounds.first)} through ${dateLabel(bounds.last)} (overall BTS coverage).` : status.pending
+    ? 'Loading BTS date coverage…'
+    : 'BTS date coverage unavailable; date-filtered charts are paused until the available range can be verified.';
+  $('detail-date-help').textContent = `${range} An individual airport or filter selection may have no rows within this overall range.`;
+  $('compare-date-help').textContent = `${range} Some hubs and carrier selections may have no rows within this overall range.`;
   $('dataset-label').textContent = data?.importing ? 'Importing data' : data?.totalFlights ? 'Dataset available' : 'Coverage pending';
   $('total-records').textContent = status.pending ? 'Loading…' : status.error ? 'Unavailable' : number(data?.totalFlights ?? 0);
   $('date-coverage').textContent = status.pending ? 'Loading…' : status.error ? 'Unavailable'
@@ -191,12 +316,12 @@ function updateCoverage() {
   $('compare-coverage-dates').textContent = status.pending ? 'Loading…' : status.error ? 'Unavailable'
     : data?.firstDate && data?.lastDate ? `${dateLabel(data.firstDate)} – ${dateLabel(data.lastDate)}` : 'No dates loaded';
   $('compare-months').textContent = `${data?.loadedMonths?.length ?? 0} months loaded · all airports`;
-  $('from').max = $('to').value || data?.lastDate || '';
-  $('to').max = data?.lastDate || '';
-  $('to').min = $('from').value || '';
-  $('compare-from').max = $('compare-to').value || data?.lastDate || '';
-  $('compare-to').max = data?.lastDate || '';
-  $('compare-to').min = $('compare-from').value || '';
+  for (const id of ['from', 'to', 'compare-from', 'compare-to']) {
+    $(id).min = bounds?.first || '';
+    $(id).max = bounds?.last || '';
+  }
+  validateDates();
+  compareDatesValid();
   const source = $('dataset-source');
   source.hidden = !data?.sourceUrl?.startsWith('https://');
   if (!source.hidden) source.href = data.sourceUrl;
@@ -221,16 +346,17 @@ function updateCoverage() {
   };
   if (state.airports.error) notice('Airport names could not be loaded. Airport code selection remains available.', 'airports', 'status-airports-error');
   if (status.error) notice('Dataset coverage is unavailable. Metrics may still load, but date completeness cannot be verified.', 'coverage', 'status-coverage-error');
+  else if (!status.pending && !bounds) notice('BTS date bounds are unavailable. Date coverage cannot be verified; no range has been assumed.', 'coverage', 'status-coverage-unavailable');
   if (data?.importing) notice('BTS records are being imported. Current figures may cover only part of the published dataset; check the dates above before interpreting results.', null, 'status-importing');
   const compareNotices = $('compare-notices');
   compareNotices.replaceChildren();
-  if (status.error || state.airports.error || data?.importing) {
+  if (status.error || state.airports.error || data?.importing || (!status.pending && !bounds)) {
     const note = document.createElement('div');
     note.className = 'import-note';
     note.setAttribute('role', 'status');
     note.textContent = data?.importing
       ? 'BTS records are being imported. The ranking may cover only part of the published dataset.'
-      : status.error ? 'Dataset coverage is unavailable. Ranking data may still load, but date completeness cannot be verified.'
+      : status.error || !bounds ? 'BTS date bounds are unavailable. Date coverage cannot be verified; no range has been assumed.'
         : 'Airport names are unavailable; airport codes remain visible.';
     if (status.error || state.airports.error) {
       const retry = document.createElement('button');
@@ -257,17 +383,12 @@ async function loadMetadata() {
   renderResults();
   renderComparison();
   renderAirlineHubs();
+  if (state.activeView === 'compare') loadComparison();
+  else loadResults();
 }
 
 function compareDatesValid() {
-  const from = $('compare-from').value;
-  const to = $('compare-to').value;
-  const message = from && to && from > to ? 'Start date must be on or before end date.' : '';
-  $('compare-date-error').textContent = message;
-  $('compare-date-error').hidden = !message;
-  $('compare-from').max = to || state.status.data?.lastDate || '';
-  $('compare-to').min = from || '';
-  return !message;
+  return validateDatePair('compare-from', 'compare-to', 'compare-date-error');
 }
 
 function renderHubOptions() {
@@ -351,7 +472,7 @@ function renderAirlineHubs() {
   }
   if (hubResults.invalid) {
     summary.textContent = `${selected.name} · ${selected.code}`;
-    target.innerHTML = `<div class="compare-status">${empty('Choose a date range with the start on or before the end.')}</div>`;
+    target.innerHTML = `<div class="compare-status">${empty($('compare-date-error').textContent)}</div>`;
     return;
   }
   if (hubResults.pending) {
@@ -472,8 +593,8 @@ function renderComparison() {
   const measure = state.nasMeasure;
   $('nas-metric-description').textContent = NAS_MEASURES[measure].description;
   if (compare.invalid) {
-    target.innerHTML = `<div class="compare-status">${empty('Choose a date range with the start on or before the end.')}</div>`;
-    nasTarget.innerHTML = `<div class="compare-status">${empty('Choose a date range with the start on or before the end.')}</div>`;
+    target.innerHTML = `<div class="compare-status">${empty($('compare-date-error').textContent)}</div>`;
+    nasTarget.innerHTML = `<div class="compare-status">${empty($('compare-date-error').textContent)}</div>`;
   } else if (compare.pending) {
     target.innerHTML = `<div class="compare-status">${loading(280)}</div>`;
     nasTarget.innerHTML = `<div class="compare-status">${loading(280)}</div>`;
@@ -573,6 +694,7 @@ function switchView() {
     const destination = next === 'compare' ? ['compare-from', 'compare-to'] : ['from', 'to'];
     destination.forEach((id, index) => { $(id).value = $(source[index]).value; });
     state.activeView = next;
+    loadFaa(true);
     if (next === 'compare') {
       loadComparison();
       loadHubOptions();
@@ -603,14 +725,7 @@ function filterValues() {
 }
 
 function validateDates() {
-  const from = $('from').value;
-  const to = $('to').value;
-  const message = from && to && from > to ? 'Start date must be on or before end date.' : '';
-  $('date-error').textContent = message;
-  $('date-error').hidden = !message;
-  $('from').max = to || state.status.data?.lastDate || '';
-  $('to').min = from || '';
-  return !message;
+  return validateDatePair('from', 'to', 'date-error');
 }
 
 function validateRules() {
@@ -628,7 +743,7 @@ async function loadResults() {
   const rulesValid = validateRules();
   if (!datesValid || !rulesValid) {
     state.results = {};
-    renderResults(datesValid ? 'Complete each record rule with a nonnegative whole number.' : 'Choose a date range with the start on or before the end.');
+    renderResults(datesValid ? 'Complete each record rule with a nonnegative whole number.' : $('date-error').textContent);
     return;
   }
   state.controller = new AbortController();
@@ -725,6 +840,7 @@ document.addEventListener('click', (event) => {
   if (action === 'retry-hub-options') loadHubOptions(true);
   if (action === 'retry-airline-hubs') loadAirlineHubs();
   if (action === 'retry-metadata') loadMetadata();
+  if (action === 'retry-faa') loadFaa(true);
   if (action === 'retry-airlines') loadAvailableAirlines();
   if (action === 'remove-rule') {
     const id = Number(event.target.closest('[data-rule-id]')?.dataset.ruleId);
@@ -782,9 +898,36 @@ $('airport').addEventListener('change', () => {
   $('airline-trigger').setAttribute('aria-expanded', 'false');
   loadAvailableAirlines();
   loadResults();
+  renderFaa();
+  loadFaa(true);
 });
-for (const id of ['from', 'to']) $(id).addEventListener('change', loadResults);
-for (const id of ['compare-from', 'compare-to']) $(id).addEventListener('change', loadComparison);
+for (const id of ['from', 'to', 'compare-from', 'compare-to']) {
+  $(id).addEventListener('input', () => {
+    const compare = id.startsWith('compare-');
+    clearTimeout(dateInputTimer);
+    if (compare ? !compareDatesValid() : !validateDates()) {
+      if (compare) {
+        state.compareController?.abort();
+        state.hubController?.abort();
+        ++state.compareRequestId;
+        ++state.hubRequestId;
+        state.compare = { invalid: true };
+        state.hubResults = { invalid: true };
+        renderComparison();
+        renderAirlineHubs();
+      } else {
+        state.controller?.abort();
+        ++state.requestId;
+        state.results = {};
+        renderResults($('date-error').textContent);
+      }
+    } else {
+      dateInputTimer = setTimeout(compare ? loadComparison : loadResults, 300);
+    }
+  });
+}
+for (const id of ['from', 'to']) $(id).addEventListener('change', () => { clearTimeout(dateInputTimer); loadResults(); });
+for (const id of ['compare-from', 'compare-to']) $(id).addEventListener('change', () => { clearTimeout(dateInputTimer); loadComparison(); });
 $('compare-reset').addEventListener('click', () => {
   $('compare-from').value = '';
   $('compare-to').value = '';
@@ -792,7 +935,7 @@ $('compare-reset').addEventListener('click', () => {
 });
 $('compare-refresh').addEventListener('click', async () => {
   $('compare-refresh').disabled = true;
-  await Promise.all([loadMetadata(), loadComparison(), loadHubOptions(true)]);
+  await Promise.all([loadMetadata(), loadHubOptions(true), loadFaa(true)]);
   $('compare-refresh').disabled = false;
 });
 window.addEventListener('hashchange', switchView);
@@ -852,8 +995,10 @@ $('reset-dates').addEventListener('click', () => {
 });
 $('refresh').addEventListener('click', async () => {
   $('refresh').disabled = true;
-  await Promise.all([loadMetadata(), loadAvailableAirlines(), loadResults()]);
+  await Promise.all([loadMetadata(), loadAvailableAirlines(), loadFaa(true)]);
   $('refresh').disabled = false;
 });
-Promise.all([loadMetadata(), loadAvailableAirlines(), loadResults()]);
+renderFaa();
+Promise.all([loadMetadata(), loadAvailableAirlines(), loadFaa(true)]);
 switchView();
+setInterval(() => loadFaa(true), 15 * 60 * 1000);

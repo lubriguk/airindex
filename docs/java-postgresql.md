@@ -1,8 +1,16 @@
-# Java API and existing PostgreSQL data
+# Java API and PostgreSQL data
 
-The Airport Delay Dashboard uses plain HTML, CSS, and browser JavaScript, the existing `/api` response contract, and Replit-managed PostgreSQL. The Java service under `artifacts/api-server/java/` replaces the Node API. No MySQL account, database migration, or new database schema is needed.
+The Airport Delay Dashboard uses plain HTML, CSS, and browser JavaScript, the `/api` response contract, and Replit-managed PostgreSQL. The Java service under `artifacts/api-server/java/` serves the API. BTS flight history and FAA NAS Status observations are stored separately in PostgreSQL.
 
-The Java service reads `DATABASE_URL` and checks that the existing `airport_delay_daily` and `bts_imported_months` tables are present; startup does not modify them. The BTS sync checks for missing months across a rolling 24-month window on startup and daily, then imports missing months transactionally into those same tables. Historical month markers keep prior imports from being repeated.
+The service reads `DATABASE_URL` and checks that the existing `airport_delay_daily` and `bts_imported_months` tables are present. It does not rewrite those tables during startup. The BTS importer reconciles the latest 24 published months immediately on startup and each day at 05:00 UTC. That daily check guarantees a fifth-of-the-month refresh and retries delayed or failed BTS releases on subsequent days. Available months are imported transactionally, and `bts_imported_months` markers prevent repeat imports while preserving previous historical data.
+
+The development PostgreSQL database already has the FAA tables and their schema has been verified. At startup the Java service verifies that the required FAA tables are present; application startup does not run `CREATE TABLE` or otherwise apply DDL. `artifacts/api-server/java/db/001_faa_nas_status.sql` is the FAA schema source for an app-only GitHub clone or local setup, **not** a deploy-time migration script. Replit Publish compares the development and production schemas to add the new FAA tables to production; do not run the SQL directly against production.
+
+A background poller requests the official FAA National Airspace System Status XML feed at `https://nasstatus.faa.gov/api/airport-status-information` immediately at startup and every 15 minutes while the API process runs. Each successful poll stores a timestamped snapshot and its airport-event details; the enforced `snapshot_id` foreign key cascades event deletion if a snapshot is removed. Failed requests or invalid XML do not create an empty snapshot or erase history.
+
+`GET /api/nas-status` is a current view of the most recently saved successful snapshot, not the history store itself. It returns `unavailable` before any successful poll. After the snapshot fetch time or parseable FAA source-update time is over 30 minutes old, it returns `stale` with no active event list rather than presenting old observations as current or implying an all-clear. Snapshot and event rows remain in PostgreSQL for future reference. The FAA feed covers operational advisories, while BTS records describe historical flight performance; FAA status must not be interpreted as BTS data or as proof of a particular carrier's responsibility.
+
+The 15-minute poll only runs while the Java process is running. An autoscale service that scales to zero cannot poll during its stopped periods; deployments needing uninterrupted polling must use an always-on process or a scheduled job.
 
 The API artifact's development workflow runs `pnpm --filter @workspace/api-server run dev`, which builds and starts Java. Its production build and run settings likewise use the shaded Java jar. Run `pnpm --filter @workspace/api-server run java:build` to build independently. The Java service is the only API implementation in the project.
 

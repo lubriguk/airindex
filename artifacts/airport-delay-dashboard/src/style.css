@@ -273,6 +273,31 @@ button:disabled { cursor:not-allowed; }
 @media(max-width:540px) { .compare-sort { padding:10px 12px; font-size:9px; }.compare-sort .control { flex-basis:170px; font-size:11px; } }
 @media(max-width:540px) { .compare-index button { flex:1; justify-content:center; font-size:9px; }.compare-grid { gap:16px; }.compare-grid .compare-key,.compare-grid .hub-row { grid-template-columns:23px 63px minmax(40px,1fr) 55px; gap:5px; padding-left:11px; padding-right:11px; }.compare-grid .hub-place { display:none; }.compare-grid .hub-percent { font-size:13px; }.compare-grid .compare-key { font-size:7px; }.compare-grid .compare-panel-head { padding:20px 16px 15px; }.compare-deck { padding:13px 16px; }.nas-switch { margin:15px 11px 10px; }.nas-switch label { font-size:9px; }.nas-metric-description { margin:0 14px 14px; }.nas-key,.nas-summary { grid-template-columns:23px 55px minmax(30px,1fr) 69px; gap:5px; padding-left:11px; padding-right:11px; }.nas-key { font-size:7px; }.nas-identity .hub-code { font-size:16px; }.nas-value { font-size:12px; }.nas-detail { padding:3px 12px 17px 94px; }.nas-values div { display:block; }.nas-values dd { text-align:left; margin-top:3px; } }
 
+/* Operational advisories sit apart from the historical BTS reading surface. */
+.date-help { flex-basis:100%; margin:0; color:#55747d; font-size:11px; line-height:1.5; }
+.filter-main .date-help { flex-basis:100%; }
+.control[aria-invalid="true"] { border-color:#a34132; background:#fff1ec; }
+.faa-panel { background:#e9f2f0; border:1px solid #b9d2cf; border-left:4px solid #207d80; margin:0 0 22px; color:#234b55; }
+.faa-header { display:flex; justify-content:space-between; align-items:start; gap:14px; padding:21px 24px 16px; border-bottom:1px solid #c8dcda; }
+.faa-header h2 { margin:6px 0 0; color:#163e4c; font:600 23px/1.15 'Space Grotesk',sans-serif; letter-spacing:-.04em; }
+.faa-header a { color:#166c75; font:700 10px 'Space Mono',monospace; text-decoration:underline; text-underline-offset:4px; white-space:nowrap; }
+.faa-summary { padding:16px 24px; color:#315b64; font-size:13px; line-height:1.55; }
+.faa-summary strong { color:#184a56; font:600 19px 'Space Grotesk',sans-serif; }
+.faa-summary small { display:block; color:#66828a; font:10px/1.6 'Space Mono',monospace; margin-top:5px; }
+.faa-summary .faa-warning { color:#81592c; font-weight:700; }
+.faa-summary button { margin-left:10px; padding:3px 0; border:0; border-bottom:1px solid currentColor; background:none; color:#176d75; font:700 11px 'Space Mono',monospace; }
+.faa-airport-events { padding:0 24px 15px; }
+.faa-airport-events h3 { font:700 10px 'Space Mono',monospace; letter-spacing:.1em; text-transform:uppercase; color:#53757c; margin:0 0 10px; }
+.faa-empty { margin:0; padding:12px 15px; background:#f5f9f6; border:1px solid #d3e3df; color:#41646c; font-size:13px; }
+.faa-event-list { list-style:none; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:0; margin:0; }
+.faa-event { min-width:0; background:#f7faf7; border:1px solid #cbdedb; padding:15px 17px; overflow-wrap:anywhere; }
+.faa-event-type { display:block; color:#146e78; font:700 11px 'Space Mono',monospace; text-transform:uppercase; letter-spacing:.04em; }
+.faa-event p { margin:9px 0; font-size:13px; line-height:1.55; }
+.faa-event dl { display:grid; grid-template-columns:max-content 1fr; gap:5px 12px; margin:0; font-size:11px; line-height:1.5; }
+.faa-event dt { color:#6a8588; }.faa-event dd { margin:0; font-weight:700; }
+.faa-footnote { border-top:1px solid #c8dcda; padding:12px 24px; margin:0; color:#638087; font-size:11px; line-height:1.5; }
+@media(max-width:700px) { .faa-header { padding:18px 15px 13px; flex-direction:column; }.faa-summary { padding:14px 15px; }.faa-airport-events { padding:0 15px 14px; }.faa-event-list { grid-template-columns:1fr; }.faa-footnote { padding:12px 15px; } }
+
 /* Carrier lens: a distinct reading chapter, never visually merged into airport-wide rankings. */
 .airline-hubs-panel { scroll-margin-top:20px; margin-top:36px; background:#f8faf9; border:1px solid #bcd1d2; border-top:4px solid #236e78; }
 .airline-hubs-head { display:flex; justify-content:space-between; align-items:end; gap:20px; padding:29px 32px 23px; background:#e1eded; border-bottom:1px solid #c4d9d9; }

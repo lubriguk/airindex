@@ -46,14 +46,15 @@
         <section class="filter-panel fade-in" aria-label="Dashboard controls">
           <div class="filter-main">
           <label class="field field-airport"><span class="field-label">Departure airport</span><span class="select-wrap"><select class="control select-control" id="airport" data-testid="select-airport" aria-label="Departure airport"></select><span class="select-chevron" aria-hidden="true">⌄</span></span></label>
-          <label class="field"><span class="field-label">From</span><input class="control" id="from" type="date" data-testid="input-from-date" /></label>
-          <label class="field"><span class="field-label">To</span><input class="control" id="to" type="date" data-testid="input-to-date" /></label>
+          <label class="field"><span class="field-label">From</span><input class="control" id="from" type="date" aria-describedby="detail-date-help date-error" data-testid="input-from-date" /></label>
+          <label class="field"><span class="field-label">To</span><input class="control" id="to" type="date" aria-describedby="detail-date-help date-error" data-testid="input-to-date" /></label>
           <div class="field airline-field"><span class="field-label" id="airline-label">Airlines</span><div class="airline-picker"><button class="control airline-trigger" id="airline-trigger" type="button" aria-labelledby="airline-label airline-value" aria-expanded="false" aria-controls="airline-menu" data-testid="button-select-airlines" disabled><span class="picker-value" id="airline-value">Loading airlines…</span><span aria-hidden="true">⌄</span></button><div class="airline-menu" id="airline-menu" hidden role="group" aria-label="Airlines operating at this airport"><p class="airline-menu-note">Choose one or more. No selection includes all airlines.</p><div id="airline-options"></div></div></div></div>
           <div class="filter-actions">
             <button class="icon-button" id="reset-dates" type="button" title="Show all available dates" data-testid="button-reset-dates"><svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg> All dates</button>
             <button class="icon-button" id="refresh" type="button" title="Refresh dataset" data-testid="button-refresh-data"><svg class="icon" aria-hidden="true"><use href="#icon-refresh"></use></svg> Refresh</button>
           </div>
           <p class="filter-error" id="date-error" role="alert" data-testid="status-date-error" hidden></p>
+          <p class="date-help" id="detail-date-help" aria-live="polite">Loading BTS date coverage…</p>
           </div>
           <div class="filter-advanced">
             <button type="button" class="advanced-toggle" id="advanced-toggle" aria-expanded="false" aria-controls="advanced-body" data-testid="button-advanced-controls"><span>Advanced controls <span id="advanced-count"></span></span><span class="advanced-toggle-mark" aria-hidden="true">+</span></button>
@@ -84,6 +85,12 @@
           <div class="coverage-cell"><div class="coverage-label">Date coverage</div><strong id="date-coverage" class="coverage-date" data-testid="text-date-coverage">Loading…</strong></div>
           <div class="coverage-cell"><div class="coverage-label">Source &amp; scope</div><strong class="coverage-source"><a href="https://www.transtats.bts.gov/Fields.asp?gnoyr_VQ=FGJ" target="_blank" rel="noopener noreferrer" data-testid="link-bts-source">Official BTS fields <svg class="icon icon-inline" aria-hidden="true"><use href="#icon-link"></use></svg></a></strong><span class="coverage-months" id="loaded-months">0 months loaded · all airports</span></div>
         </section>
+        <section class="faa-panel fade-in" aria-labelledby="faa-detail-title" data-testid="section-faa-detail">
+          <div class="faa-header"><div><div class="panel-kicker">Live operations / FAA advisory feed</div><h2 id="faa-detail-title">Current airspace advisories</h2></div><a href="https://nasstatus.faa.gov/" target="_blank" rel="noopener noreferrer" data-testid="link-faa-source">FAA NAS status ↗</a></div>
+          <div id="faa-detail-summary" class="faa-summary" aria-live="polite"></div>
+          <div id="faa-airport-events" class="faa-airport-events" aria-live="polite"></div>
+          <p class="faa-footnote">Live FAA advisories are separate from historical BTS departure and arrival records. A limited restriction, including one for general aviation, does not mean the entire airport is closed.</p>
+        </section>
         <div id="notices" aria-live="polite"></div>
         <div class="section-label"><span id="snapshot-label">01 / Airport snapshot — ATL</span><span id="period-label">Full available period</span></div>
         <div id="metrics" class="metrics" aria-live="polite"></div>
@@ -105,19 +112,25 @@
             <p class="page-desc">Compare all-carrier departures and NAS attribution across hubs, then look at one airline’s own flights at its hubs and major bases.</p>
           </div>
           <div class="filter-panel compare-filter" role="group" aria-label="Comparison date range">
-            <label class="field"><span class="field-label">From</span><input class="control" id="compare-from" type="date" data-testid="input-compare-from" /></label>
-            <label class="field"><span class="field-label">To</span><input class="control" id="compare-to" type="date" data-testid="input-compare-to" /></label>
+            <label class="field"><span class="field-label">From</span><input class="control" id="compare-from" type="date" aria-describedby="compare-date-help compare-date-error" data-testid="input-compare-from" /></label>
+            <label class="field"><span class="field-label">To</span><input class="control" id="compare-to" type="date" aria-describedby="compare-date-help compare-date-error" data-testid="input-compare-to" /></label>
             <div class="filter-actions">
               <button class="icon-button" id="compare-reset" type="button" data-testid="button-compare-all-dates"><svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg> All dates</button>
               <button class="icon-button" id="compare-refresh" type="button" data-testid="button-compare-refresh"><svg class="icon" aria-hidden="true"><use href="#icon-refresh"></use></svg> Refresh</button>
             </div>
             <p class="filter-error" id="compare-date-error" role="alert" hidden></p>
+            <p class="date-help" id="compare-date-help" aria-live="polite">Loading BTS date coverage…</p>
           </div>
           <section class="coverage fade-in" aria-label="Comparison data coverage" data-testid="section-compare-coverage">
             <div class="coverage-primary"><div class="coverage-icon"><svg class="icon" aria-hidden="true"><use href="#icon-data"></use></svg></div><div><div class="coverage-label">Dataset provenance</div><div class="coverage-value">BTS On-Time Performance</div></div></div>
             <div class="coverage-cell"><div class="coverage-label">Available records</div><strong id="compare-records">Loading…</strong></div>
             <div class="coverage-cell"><div class="coverage-label">Date coverage</div><strong id="compare-coverage-dates" class="coverage-date">Loading…</strong></div>
             <div class="coverage-cell"><div class="coverage-label">Source &amp; scope</div><strong class="coverage-source"><a href="https://www.transtats.bts.gov/Fields.asp?gnoyr_VQ=FGJ" target="_blank" rel="noopener noreferrer">Official BTS fields <svg class="icon icon-inline" aria-hidden="true"><use href="#icon-link"></use></svg></a></strong><span class="coverage-months" id="compare-months">Coverage pending</span></div>
+          </section>
+          <section class="faa-panel fade-in" aria-labelledby="faa-compare-title" data-testid="section-faa-compare">
+            <div class="faa-header"><div><div class="panel-kicker">Live operations / FAA advisory feed</div><h2 id="faa-compare-title">Current airspace advisories</h2></div><a href="https://nasstatus.faa.gov/" target="_blank" rel="noopener noreferrer" data-testid="link-faa-compare-source">FAA NAS status ↗</a></div>
+            <div id="faa-compare-summary" class="faa-summary" aria-live="polite"></div>
+            <p class="faa-footnote">A live operational snapshot, not historical BTS data. Advisory restrictions may apply to only certain flights; they do not necessarily mean an entire airport is closed.</p>
           </section>
           <div id="compare-notices" aria-live="polite"></div>
           <p class="compare-scope">Airport rankings: all reporting airlines · Hubs and major bases · Origin departures · GUM excluded (not covered)</p>
