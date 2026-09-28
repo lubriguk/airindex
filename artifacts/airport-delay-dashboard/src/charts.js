@@ -60,12 +60,12 @@ export function disposeChart(container) {
   resizeObservers.delete(container);
 }
 
-function makeChart(container, width, description, instructions) {
+function makeChart(container, width, description, instructions, chartHeight = 270) {
   container.replaceChildren();
   const frame = document.createElement('div');
-  frame.style.cssText = 'position:relative;width:100%;height:270px;min-width:0;';
+  frame.style.cssText = `position:relative;width:100%;height:${chartHeight}px;min-width:0;`;
   const svg = svgElement('svg', {
-    viewBox: `0 0 ${width} 270`,
+    viewBox: `0 0 ${width} ${chartHeight}`,
     preserveAspectRatio: 'none',
     role: 'group',
     'aria-label': description,
@@ -107,8 +107,9 @@ function showTooltip(tooltip, frame, event, anchor, heading, rows) {
 
   const rect = frame.getBoundingClientRect();
   const viewWidth = frame.querySelector('svg').viewBox.baseVal.width;
+  const viewHeight = frame.querySelector('svg').viewBox.baseVal.height;
   const scaleX = rect.width / viewWidth;
-  const scaleY = rect.height / 270;
+  const scaleY = rect.height / viewHeight;
   const pointX = event && Number.isFinite(event.clientX) && event.type.startsWith('pointer')
     ? event.clientX - rect.left
     : anchor.x * scaleX;
@@ -320,6 +321,7 @@ function drawWeekdayChart(container, data, chartWidth) {
     ...item,
     pct: number(item.onTimeDeparturePct),
     flights: number(item.flights),
+    delayed: number(item.delayedDepartures),
   })).filter((item) => item.pct !== null) : [];
   const { frame, svg, tooltip } = makeChart(container, chartWidth, 'On-time departure percentage by day of week');
   const left = 43;
@@ -362,6 +364,7 @@ function drawWeekdayChart(container, data, chartWidth) {
     const heading = item.dayOfWeek || `Day ${index + 1}`;
     const rows = [
       { label: 'On-time departures', value: `${fmtOne(item.pct)}%`, color: TEAL },
+      ...(item.delayed !== null ? [{ label: 'Delayed departures (15+ min)', value: new Intl.NumberFormat('en-US').format(item.delayed) }] : []),
       ...(item.flights !== null ? [{ label: 'Flights', value: new Intl.NumberFormat('en-US').format(item.flights) }] : []),
     ];
     const accessible = `${heading}. ${rows.map((row) => `${row.label}: ${row.value}`).join('. ')}`;
@@ -371,5 +374,54 @@ function drawWeekdayChart(container, data, chartWidth) {
       'text-anchor': 'middle',
       'font-size': 10,
     });
+  });
+}
+
+export function renderMonthlyChart(container, points, label) {
+  renderResponsive(container, (width) => drawMonthlyChart(container, points, label, width));
+}
+
+function drawMonthlyChart(container, points, label, width) {
+  const { frame, svg, tooltip } = makeChart(
+    container, width, `${label} monthly totals`,
+    'Hover a month or press Tab to focus each monthly bar and inspect its total after the selected airline and record filters.',
+    140,
+  );
+  const left = 18;
+  const right = 10;
+  const top = 18;
+  const bottom = 120;
+  const max = Math.max(1, ...points.map((point) => point.value));
+  const slot = (width - left - right) / points.length;
+  const fmt = new Intl.NumberFormat('en-US');
+  svg.append(svgElement('line', {
+    x1: left, y1: bottom, x2: width - right, y2: bottom, stroke: '#b8cdd0',
+  }));
+  addText(svg, left, 12, `${fmt.format(max)} max`, { 'text-anchor': 'start', fill: '#52727c', 'font-size': 10 });
+
+  points.forEach((point, index) => {
+    const x = left + index * slot;
+    const barHeight = point.value / max * (bottom - top);
+    const barX = x + slot * .16;
+    const barWidth = Math.max(2, slot * .68);
+    svg.append(svgElement('rect', {
+      x: barX, y: bottom - barHeight, width: barWidth, height: barHeight,
+      fill: TEAL, 'aria-hidden': 'true',
+    }));
+
+    const heading = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' })
+      .format(new Date(Number(point.month.slice(0, 4)), Number(point.month.slice(5, 7)) - 1, 1));
+    const rows = [
+      { label, value: fmt.format(point.value), color: TEAL },
+      ...(label === 'Flights' ? [] : [{ label: 'Flights in selection', value: fmt.format(point.flights) }]),
+      { label: 'Reported days', value: fmt.format(point.days) },
+    ];
+    const hit = svgElement('rect', {
+      x, y: top, width: slot, height: bottom - top,
+      fill: 'transparent', 'data-chart-point': 'monthly', class: 'monthly-hit',
+    });
+    attachTooltip(hit, tooltip, frame, { x: barX + barWidth / 2, y: bottom - barHeight },
+      heading, rows, `${heading}. ${rows.map((row) => `${row.label}: ${row.value}`).join('. ')}`);
+    svg.append(hit);
   });
 }

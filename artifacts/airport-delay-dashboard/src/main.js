@@ -1,7 +1,8 @@
-import { disposeChart, renderDailyChart, renderWeekdayChart } from './charts.js';
+import { disposeChart, renderDailyChart, renderMonthlyChart, renderWeekdayChart } from './charts.js';
 import { nasRaw, sortDepartures, sortNas } from './comparison-sort.js';
 import { airlineName, airlineLabel } from './airlines.js';
 import { airlineChoiceParams, buildDetailParams, unavailableAirlineCodes } from './filter-scope.js';
+import { monthlyPoints } from './monthly-data.js';
 
 const CODES = ['ATL', 'DFW', 'DEN', 'ORD', 'LAX', 'JFK', 'LGA', 'EWR', 'SFO', 'SEA', 'CLT', 'PHX', 'MIA', 'PHL', 'DCA', 'IAD', 'IAH', 'DTW', 'MSP', 'SLC', 'BOS', 'PDX', 'ANC', 'HNL', 'DAL', 'HOU', 'MDW', 'BWI', 'LAS', 'MCO', 'FLL', 'SJU'];
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -854,49 +855,36 @@ function resultFailure(entry, fallback) {
   return entry.timeout ? 'This request took longer than 20 seconds; try again.' : fallback;
 }
 
-function rawTrendCard([key, label, field], daily) {
+function rawTrendCard([key, label], daily, points) {
   const unit = key.endsWith('_minutes') ? 'minutes' : 'flights';
-  const months = new Map();
-  for (const item of daily.data ?? []) {
-    if (!/^\d{4}-\d{2}-\d{2}/.test(String(item?.date)) || !Number.isFinite(Number(item.flights)) || Number(item.flights) <= 0) continue;
-    const value = item[field];
-    if (value == null || !Number.isFinite(Number(value))) continue;
-    const month = item.date.slice(0, 7);
-    months.set(month, (months.get(month) ?? 0) + Number(value));
-  }
-  const points = [...months].sort(([a], [b]) => a.localeCompare(b));
   const heading = `<h3>${escapeHtml(label)}</h3><span class="trend-unit">Reported ${unit} / month · independent scale</span>`;
   const warning = daily.warning ? `<p class="trend-warning" role="alert">${daily.timeout ? 'This request took longer than 20 seconds; try again.' : 'Refresh failed.'} Showing the last retrieved results for this selection. <button type="button" data-action="retry">Try again</button></p>` : '';
   if (daily.pending) return `<article class="raw-trend">${heading}${loading(145)}</article>`;
   if (daily.error) return `<article class="raw-trend">${heading}${empty(resultFailure(daily, 'Monthly daily records could not be retrieved. Retry the daily view.'), true)}</article>`;
   if (!points.length) return `<article class="raw-trend">${heading}${empty('No reported daily observations for this metric in the applied selection.')}</article>`;
-  const max = Math.max(1, ...points.map(([, value]) => value));
-  const width = 520; const left = 18; const right = 10; const top = 18; const bottom = 120;
-  const step = (width - left - right) / points.length;
-  const bars = points.map(([month, value], index) => {
-    const height = value / max * (bottom - top);
-    const x = left + index * step + step * .16;
-    return `<rect x="${x.toFixed(1)}" y="${(bottom - height).toFixed(1)}" width="${Math.max(2, step * .68).toFixed(1)}" height="${height.toFixed(1)}" fill="#248590"><title>${escapeHtml(month)}: ${number(value)} ${unit}</title></rect>`;
-  }).join('');
-  const descriptions = points.map(([month, value]) => `${month}: ${number(value)} ${unit}`).join('; ');
+  const max = Math.max(...points.map((point) => point.value));
   return `<article class="raw-trend" data-testid="chart-raw-${key}">${heading}${warning}
-    <svg viewBox="0 0 520 140" role="img" aria-label="${escapeHtml(label)} monthly totals: ${escapeHtml(descriptions)}">
-      <line x1="18" y1="${bottom}" x2="510" y2="${bottom}" stroke="#b8cdd0"/>
-      <text x="18" y="12" fill="#52727c" font-size="10">${number(max)} ${unit}</text>${bars}
-    </svg><div class="trend-months"><span>${escapeHtml(points[0][0])}</span><span>${points.length} observed ${points.length === 1 ? 'month' : 'months'}</span><span>${escapeHtml(points.at(-1)[0])}</span></div>
-    <p class="trend-detail">Highest monthly total: ${number(max)} ${unit}. Bars compare this measure only.</p>
-    <ul class="sr-only">${points.map(([month, value]) => `<li>${escapeHtml(month)}: ${number(value)} ${unit}</li>`).join('')}</ul></article>`;
+    <div class="monthly-chart" data-monthly-metric="${key}"></div>
+    <div class="trend-months"><span>${escapeHtml(points[0].month)}</span><span>${points.length} observed ${points.length === 1 ? 'month' : 'months'}</span><span>${escapeHtml(points.at(-1).month)}</span></div>
+    <p class="trend-detail">Highest monthly total: ${number(max)} ${unit}. Hover or focus a bar for that month's filtered total, flight count, and reported days.</p></article>`;
 }
 
 function renderRawTrends(daily) {
+  $('raw-trends-grid').querySelectorAll('.monthly-chart').forEach(disposeChart);
   const selected = RAW_METRICS.filter(([key]) => state.appliedMetrics.has(`raw-${key}`));
   $('raw-trends').hidden = !selected.length;
   $('raw-trends-scope').textContent = `Monthly totals for ${$('airport').value || 'ATL'} · ${state.airlines.size
     ? [...state.airlines].sort().map(airlineLabel).join(', ')
     : 'all reporting airlines'}, after applied record rules. Each measure has its own scale; missing observations are not zero.`;
-  if (selected.length) $('raw-trends-grid').innerHTML = daily.invalid
+  const charts = selected.map((entry) => ({ entry, points: monthlyPoints(daily.data ?? [], entry[2]) }));
+  $('raw-trends-grid').innerHTML = !selected.length ? '' : daily.invalid
     ? `<div class="raw-trend">${empty(daily.invalid)}</div>`
-    : selected.map((entry) => rawTrendCard(entry, daily)).join('');
+    : charts.map(({ entry, points }) => rawTrendCard(entry, daily, points)).join('');
+  if (!daily.invalid && !daily.pending && !daily.error) {
+    charts.forEach(({ entry: [key, label], points }) => {
+      if (points.length) renderMonthlyChart($('raw-trends-grid').querySelector(`[data-monthly-metric="${key}"]`), points, label);
+    });
+  }
 }
 
 async function loadResults() {

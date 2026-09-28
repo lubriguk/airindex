@@ -178,6 +178,10 @@ button:disabled { cursor:not-allowed; }
 .raw-trend h3 { font:600 17px 'Space Grotesk',sans-serif; color:#193d4b; margin:0 0 4px; }
 .raw-trend .trend-unit { font:10px 'Space Mono',monospace; color:#63818a; text-transform:uppercase; }
 .raw-trend svg { width:100%; height:auto; display:block; margin-top:12px; }
+.monthly-chart { margin-top:12px; }
+.monthly-chart svg { margin-top:0; }
+.monthly-hit { cursor:help; }
+.monthly-hit:hover,.monthly-hit:focus-visible { fill:#24859022; stroke:#12394a; stroke-width:1.5; }
 .raw-trend .trend-months { display:flex; justify-content:space-between; gap:12px; font:10px 'Space Mono',monospace; color:#657f88; }
 .raw-trend .trend-detail { color:#5b7881; font-size:11px; line-height:1.5; margin:11px 0 0; }
 .raw-trend .state-box { min-height:145px; margin-top:14px; }

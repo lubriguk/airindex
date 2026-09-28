@@ -23,10 +23,10 @@ Separately, the Java service polls the [FAA NAS Status XML feed](https://nasstat
 |---|---|
 | **Airport snapshot** | On-time departure percentage, reported scheduled flights, average departure delay, and cancellation rate by default; optional raw totals can be added. |
 | **How the days performed** | Daily on-time share and average departure delay in minutes on separate scales; reported days only, with date, values, and flight count on hover/focus. |
-| **The weekly rhythm** | Monday–Sunday on-time departure shares with underlying flight counts available on the chart. |
+| **The weekly rhythm** | Monday–Sunday on-time departure shares; hover or focus a bar for the filtered rate, delayed-departure count, and flight count. |
 | **Who operates here** | Reporting carriers at the origin, sorted by departure volume, with full name/code, flight count, on-time share, and average departure delay. |
 | **What happened after takeoff** | Reported arrival count, average arrival delay, diverted flights, and carrier/weather/NAS/security/late-aircraft **arrival**-delay minutes for those origin-departing flights. |
-| **Monthly signals** | Optional monthly totals for selected raw measures; each uses its own scale, and unobserved months are omitted. |
+| **Monthly signals** | Optional monthly totals for selected raw measures; each uses its own scale, and unobserved months are omitted. Hover or focus a bar for that month's filtered total, flight count, and number of reported days. |
 
 The interface currently labels these BTS reporting codes; the code stays visible so a regional operator is not confused with the brand on a ticket:
 
