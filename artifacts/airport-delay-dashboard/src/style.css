@@ -115,7 +115,7 @@ button:disabled { cursor:not-allowed; }
 @media(prefers-reduced-motion:reduce) { *,*:before,*:after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
 
 /* Query workbench: record constraints and presentation choices live in separate lanes. */
-.filter-panel { display:block; padding:0; }
+.filter-panel { display:block; padding:0; position:relative; z-index:1; }
 .filter-main { display:flex; align-items:end; gap:15px; flex-wrap:wrap; padding:20px 22px; }
 .filter-main .field { flex:1; }
 .filter-airport-group { display:flex; flex-direction:column; gap:12px; flex:1.75; min-width:260px; align-self:stretch; }
@@ -132,6 +132,8 @@ button:disabled { cursor:not-allowed; }
 .airline-menu[hidden] { display:none!important; }
 .airline-option,.metric-option { display:flex; align-items:center; gap:10px; cursor:pointer; }
 .airline-option { padding:9px 10px; color:#254955; font:600 12px 'DM Sans',sans-serif; }
+.airline-option .airline-name { min-width:0; }
+.airline-option .airline-code { margin-left:auto; color:#66828a; font:700 10px 'Space Mono',monospace; }
 .airline-option:hover,.metric-option:hover { background:#e9f2f1; }
 .airline-option input,.metric-option input { accent-color:#167c86; width:16px; height:16px; margin:0; flex:none; cursor:pointer; }
 .airline-menu-note { margin:4px 9px 8px; color:#68828a; font-size:11px; line-height:1.5; }

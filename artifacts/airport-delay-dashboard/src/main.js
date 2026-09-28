@@ -1,5 +1,6 @@
 import { disposeChart, renderDailyChart, renderWeekdayChart } from './charts.js';
 import { nasRaw, sortDepartures, sortNas } from './comparison-sort.js';
+import { airlineName, airlineLabel } from './airlines.js';
 
 const CODES = ['ATL', 'DFW', 'DEN', 'ORD', 'LAX', 'JFK', 'LGA', 'EWR', 'SFO', 'SEA', 'CLT', 'PHX', 'MIA', 'PHL', 'DCA', 'IAD', 'IAH', 'DTW', 'MSP', 'SLC', 'BOS', 'PDX', 'ANC', 'HNL', 'DAL', 'HOU', 'MDW', 'BWI', 'LAS', 'MCO', 'FLL', 'SJU'];
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -214,11 +215,11 @@ function renderAirlines() {
     : airlineOptions.pending ? 'Checking available airlines…'
       : airlineOptions.error ? 'Airlines unavailable — retry'
         : !codes.length ? 'No airlines with records'
-          : airlines.size ? [...airlines].sort().join(', ') : 'All available airlines';
+          : airlines.size ? [...airlines].sort().map(airlineLabel).join(', ') : 'All available airlines';
   $('airline-options').innerHTML = airlineOptions.pending ? loading(90)
     : airlineOptions.error ? `<div class="airline-menu-note" role="alert">Could not load airlines. <button type="button" data-action="retry-airlines" data-testid="button-retry-airlines">Try again</button></div>`
       : !codes.length ? '<p class="airline-menu-note">No airlines have reported flights for this selection.</p>'
-        : codes.sort().map((code) => `<label class="airline-option"><input type="checkbox" value="${escapeHtml(code)}" ${airlines.has(code) ? 'checked' : ''} data-testid="checkbox-airline-${escapeHtml(code)}"><span>${escapeHtml(code)}</span></label>`).join('');
+        : codes.sort().map((code) => `<label class="airline-option"><input type="checkbox" value="${escapeHtml(code)}" ${airlines.has(code) ? 'checked' : ''} data-testid="checkbox-airline-${escapeHtml(code)}"><span class="airline-name">${escapeHtml(airlineName(code))}</span><span class="airline-code">${escapeHtml(code)}</span></label>`).join('');
   updateQueryChips();
 }
 
@@ -238,9 +239,11 @@ async function loadAvailableAirlines(force = false) {
     invalidateAirlineOptions();
     return false;
   }
-  // The airline choice must not limit the list of other available airlines.
+  // Choices follow the airport and dates, but neither the selected airline nor
+  // record rules may remove a carrier: both constraints still apply to results.
   const params = filterValues();
   params.delete('airline');
+  params.delete('metric');
   const scopeKey = params.toString();
   if (state.airlineLoad?.key === scopeKey) return state.airlineLoad.promise;
   if (!force && state.airlineOptions.scopeKey === scopeKey
@@ -267,7 +270,7 @@ async function loadAvailableAirlines(force = false) {
       removed.forEach((code) => state.airlines.delete(code));
       const note = $('airline-scope-note');
       note.textContent = removed.length
-        ? `${removed.join(', ')} ${removed.length === 1 ? 'has' : 'have'} no reported flights for this selection and ${removed.length === 1 ? 'was' : 'were'} removed from the airline filter.`
+        ? `${removed.map(airlineLabel).join(', ')} ${removed.length === 1 ? 'has' : 'have'} no reported flights for this airport and date range and ${removed.length === 1 ? 'was' : 'were'} removed from the airline filter.`
         : '';
       note.hidden = !removed.length;
       state.airlineOptions = { data: available, scopeKey };
@@ -322,7 +325,7 @@ function updateDraftStatus() {
 
 function updateQueryChips() {
   const parts = [
-    ...[...state.airlines].sort().map((code) => `<span class="query-chip">Airline ${escapeHtml(code)}</span>`),
+    ...[...state.airlines].sort().map((code) => `<span class="query-chip">Airline ${escapeHtml(airlineLabel(code))}</span>`),
     ...state.appliedRules.map((rule) => {
       const label = RAW_METRICS.find(([key]) => key === rule.column)?.[1] || rule.column;
       const operator = { gte: '≥', lte: '≤', eq: '=' }[rule.operator];
@@ -886,6 +889,9 @@ function rawTrendCard([key, label, field], daily) {
 function renderRawTrends(daily) {
   const selected = RAW_METRICS.filter(([key]) => state.appliedMetrics.has(`raw-${key}`));
   $('raw-trends').hidden = !selected.length;
+  $('raw-trends-scope').textContent = `Monthly totals for ${$('airport').value || 'ATL'} · ${state.airlines.size
+    ? [...state.airlines].sort().map(airlineLabel).join(', ')
+    : 'all reporting airlines'}, after applied record rules. Each measure has its own scale; missing observations are not zero.`;
   if (selected.length) $('raw-trends-grid').innerHTML = daily.invalid
     ? `<div class="raw-trend">${empty(daily.invalid)}</div>`
     : selected.map((entry) => rawTrendCard(entry, daily)).join('');
@@ -933,7 +939,9 @@ function renderResults(invalid = '') {
     causes = { pending: true }, weekday = { pending: true } } = state.results;
   const airport = $('airport').value || 'ATL';
   const selected = state.airports.data?.find((item) => item.code === airport);
-  $('snapshot-label').textContent = `01 / Airport snapshot — ${airport}${selected ? ` · ${selected.city}` : ''}`;
+  const airlineScope = state.airlines.size === 1 ? ` · ${airlineLabel([...state.airlines][0])}`
+    : state.airlines.size > 1 ? ` · ${state.airlines.size} selected airlines` : '';
+  $('snapshot-label').textContent = `01 / Airport snapshot — ${airport}${selected ? ` · ${selected.city}` : ''}${airlineScope}`;
   $('period-label').textContent = $('from').value || $('to').value
     ? `${$('from').value ? dateLabel($('from').value) : 'First available'} → ${$('to').value ? dateLabel($('to').value) : 'Latest available'}`
     : 'Full available period';
@@ -976,8 +984,8 @@ function renderResults(invalid = '') {
   $('carrier-panel').innerHTML = invalid ? empty(message) : carriers.pending ? loading(250) : carriers.error
     ? empty(resultFailure(carriers, 'Carrier records could not be retrieved.'), true) : !carrierData.length ? empty(message)
       : `${stale(carriers)}<div class="table-scroll"><table class="data-table"><thead><tr><th>Carrier</th><th>Flights</th><th>On-time departure</th><th>Avg delay</th></tr></thead><tbody>${carrierData.map((item) =>
-        `<tr data-testid="row-carrier-${escapeHtml(item.code)}"><td><span class="code-pill">${escapeHtml(item.code)}</span></td><td>${number(item.flights)}</td><td class="on-time-cell"><div class="table-bar"><span>${one(item.onTimeDeparturePct)}%</span><div class="bar-track"><div class="bar-fill" style="width:${Math.max(0, Math.min(100, item.onTimeDeparturePct))}%"></div></div></div></td><td>${one(item.avgDepartureDelayMinutes)} min</td></tr>`,
-      ).join('')}</tbody></table><p class="chart-note">Sorted by departure volume. Carrier codes are BTS reporting-carrier codes.</p></div>`;
+        `<tr data-testid="row-carrier-${escapeHtml(item.code)}"><td>${escapeHtml(airlineName(item.code))} <span class="code-pill">${escapeHtml(item.code)}</span></td><td>${number(item.flights)}</td><td class="on-time-cell"><div class="table-bar"><span>${one(item.onTimeDeparturePct)}%</span><div class="bar-track"><div class="bar-fill" style="width:${Math.max(0, Math.min(100, item.onTimeDeparturePct))}%"></div></div></div></td><td>${one(item.avgDepartureDelayMinutes)} min</td></tr>`,
+      ).join('')}</tbody></table><p class="chart-note">Sorted by departure volume. Names identify BTS reporting carriers; regional operators may fly for other airline brands.</p></div>`;
 
   const totalCauseMinutes = causeData.reduce((sum, item) => sum + item.minutes, 0);
   $('arrival-panel').innerHTML = invalid ? empty(message) : summary.pending || causes.pending ? loading(250)
@@ -1054,7 +1062,8 @@ $('airline-options').addEventListener('change', (event) => {
   if (event.target.type !== 'checkbox') return;
   if (event.target.checked) state.airlines.add(event.target.value);
   else state.airlines.delete(event.target.value);
-  $('airline-value').textContent = state.airlines.size ? [...state.airlines].sort().join(', ') : 'All airlines';
+  $('airline-value').textContent = state.airlines.size
+    ? [...state.airlines].sort().map(airlineLabel).join(', ') : 'All available airlines';
   updateQueryChips();
   loadResults();
 });
