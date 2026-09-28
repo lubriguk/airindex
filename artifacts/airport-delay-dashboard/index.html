@@ -102,7 +102,7 @@
           <div class="compare-intro fade-in">
             <div class="eyebrow">Research desk / Cross-airport comparison</div>
             <h1 class="page-title" id="compare-title">Compare hubs.</h1>
-            <p class="page-desc">Where are departures most likely to run 15 minutes late? An at-a-glance ranking of hubs and major bases, across all reporting airlines.</p>
+            <p class="page-desc">Two ways to read reliability across hubs and major bases: late departures, and NAS-attributed arrival-delay minutes for flights that began there.</p>
           </div>
           <div class="filter-panel compare-filter" role="group" aria-label="Comparison date range">
             <label class="field"><span class="field-label">From</span><input class="control" id="compare-from" type="date" data-testid="input-compare-from" /></label>
@@ -121,14 +121,29 @@
           </section>
           <div id="compare-notices" aria-live="polite"></div>
           <p class="compare-scope">Hubs and major bases · All reporting airlines · Origin departures · GUM excluded (not covered)</p>
-          <section class="compare-panel" aria-labelledby="ranking-title">
+          <nav class="compare-index" aria-label="Jump to a comparison chart"><button type="button" data-jump="departure-ranking" data-testid="button-jump-departure"><span>01 /</span> Departure delay</button><button type="button" data-jump="nas-ranking" data-testid="button-jump-nas"><span>02 /</span> NAS arrival attribution</button></nav>
+          <div class="compare-grid">
+          <section class="compare-panel" id="departure-ranking" aria-labelledby="ranking-title">
             <div class="compare-panel-head">
-              <div><div class="panel-kicker">01 / Departure delay index</div><h2 class="panel-title" id="ranking-title">The 15-minute threshold</h2></div>
+              <div><div class="panel-kicker">01 / Departure delay index</div><h2 class="panel-title" id="ranking-title" tabindex="-1">The 15-minute threshold</h2></div>
               <div class="panel-caption" id="compare-period">Full available period</div>
             </div>
+            <div class="compare-deck"><p>Share of reported departure flights leaving at least 15 minutes late.</p></div>
             <div id="compare-results" aria-live="polite" aria-atomic="false"></div>
           </section>
-          <footer class="footer"><p><strong>Reading the ranking.</strong> Delayed departures are flights leaving 15 minutes or more after schedule. The percentage is delayed departures divided by reported departure flights for each airport, not an airline-specific hub performance measure. Airports with no reported departures in the selected dates are not ranked.</p><p>Source: <a href="https://www.transtats.bts.gov/ONTIME/" target="_blank" rel="noopener noreferrer">Bureau of Transportation Statistics</a><br />Reporting Carrier On-Time Performance</p></footer>
+          <section class="compare-panel" id="nas-ranking" aria-labelledby="nas-title">
+            <div class="compare-panel-head"><div><div class="panel-kicker">02 / Arrival cause index</div><h2 class="panel-title" id="nas-title" tabindex="-1">NAS-attributed minutes</h2></div><div class="panel-caption">ORIGIN-BASED / BTS ATTRIBUTION</div></div>
+            <div class="compare-deck"><p>Arrival-delay cause minutes reported for flights originating at each airport. Not a measure of departure delay or proof of airport responsibility.</p></div>
+            <div class="nas-switch" role="radiogroup" aria-label="Rank NAS-attributed arrival delays by">
+              <label><input type="radio" name="nas-measure" value="perArrival" checked data-testid="radio-nas-per-arrival"><span>Minutes / arrival</span></label>
+              <label><input type="radio" name="nas-measure" value="total" data-testid="radio-nas-total"><span>Total minutes</span></label>
+              <label><input type="radio" name="nas-measure" value="share" data-testid="radio-nas-share"><span>Share of causes</span></label>
+            </div>
+            <p class="nas-metric-description" id="nas-metric-description" aria-live="polite"></p>
+            <div id="nas-results" aria-live="polite" aria-atomic="false"></div>
+          </section>
+          </div>
+          <footer class="footer"><p><strong>Reading the rankings.</strong> Delayed departures are flights leaving 15 minutes or more after schedule, divided by reported departure flights. NAS is one of five BTS-attributed <em>arrival</em>-delay causes for flights originating at each airport. Per-arrival uses flights with reported arrival times; share uses the sum of all five attributed cause-minute fields. N/A means no denominator was reported. Attribution does not establish where or why an airport was responsible.</p><p>Source: <a href="https://www.transtats.bts.gov/ONTIME/" target="_blank" rel="noopener noreferrer">Bureau of Transportation Statistics</a><br />Reporting Carrier On-Time Performance</p></footer>
         </section>
       </main>
     </div>

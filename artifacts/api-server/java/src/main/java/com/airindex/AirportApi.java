@@ -208,19 +208,34 @@ public final class AirportApi {
         String placeholders = String.join(", ", COMPARISON_AIRPORTS.stream()
                 .map(airport -> "?").toList());
         String sql = """
-                SELECT airport, SUM(flights) AS flights,
-                  SUM(departure_flights) AS "departureFlights",
-                  SUM(delayed_departures) AS "delayedDepartures",
-                  ROUND(100.0 * SUM(delayed_departures)
-                    / NULLIF(SUM(departure_flights), 0), 1) AS "delayedDeparturePct"
-                FROM airport_delay_daily
-                WHERE airport IN (%s)
-                  AND (?::date IS NULL OR flight_date >= ?::date)
-                  AND (?::date IS NULL OR flight_date <= ?::date)
-                GROUP BY airport
-                HAVING SUM(departure_flights) > 0
-                ORDER BY SUM(delayed_departures)::numeric
-                  / NULLIF(SUM(departure_flights), 0) DESC, airport
+                WITH totals AS (
+                  SELECT airport, SUM(flights) AS flights,
+                    SUM(departure_flights) AS departures,
+                    SUM(delayed_departures) AS delayed,
+                    SUM(arrival_flights) AS arrivals,
+                    SUM(nas_delay_minutes) AS nas_minutes,
+                    SUM(carrier_delay_minutes + weather_delay_minutes
+                      + nas_delay_minutes + security_delay_minutes
+                      + late_aircraft_delay_minutes) AS attributed_minutes
+                  FROM airport_delay_daily
+                  WHERE airport IN (%s)
+                    AND (?::date IS NULL OR flight_date >= ?::date)
+                    AND (?::date IS NULL OR flight_date <= ?::date)
+                  GROUP BY airport
+                  HAVING SUM(departure_flights) > 0
+                )
+                SELECT airport, flights, departures AS "departureFlights",
+                  delayed AS "delayedDepartures",
+                  ROUND(100.0 * delayed / NULLIF(departures, 0), 1)
+                    AS "delayedDeparturePct",
+                  arrivals AS "arrivalFlights", nas_minutes AS "nasDelayMinutes",
+                  attributed_minutes AS "attributedDelayMinutes",
+                  ROUND(nas_minutes::numeric / NULLIF(arrivals, 0), 2)
+                    AS "nasMinutesPerArrival",
+                  ROUND(100.0 * nas_minutes / NULLIF(attributed_minutes, 0), 1)
+                    AS "nasAttributedSharePct"
+                FROM totals
+                ORDER BY delayed::numeric / NULLIF(departures, 0) DESC, airport
                 """.formatted(placeholders);
         List<Map<String, Object>> result = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
@@ -239,6 +254,11 @@ public final class AirportApi {
                     row.put("departureFlights", integer(rows.getObject("departureFlights")));
                     row.put("delayedDepartures", integer(rows.getObject("delayedDepartures")));
                     row.put("delayedDeparturePct", decimal(rows.getObject("delayedDeparturePct")));
+                    row.put("arrivalFlights", integer(rows.getObject("arrivalFlights")));
+                    row.put("nasDelayMinutes", integer(rows.getObject("nasDelayMinutes")));
+                    row.put("attributedDelayMinutes", integer(rows.getObject("attributedDelayMinutes")));
+                    row.put("nasMinutesPerArrival", nullableDecimal(rows.getObject("nasMinutesPerArrival")));
+                    row.put("nasAttributedSharePct", nullableDecimal(rows.getObject("nasAttributedSharePct")));
                     result.add(row);
                 }
             }
@@ -565,6 +585,10 @@ public final class AirportApi {
         if (value instanceof BigDecimal decimal) return decimal;
         if (value instanceof Number number) return new BigDecimal(number.toString());
         return new BigDecimal(value.toString());
+    }
+
+    private static BigDecimal nullableDecimal(Object value) {
+        return value == null ? null : decimal(value);
     }
 
     private static void addCause(List<Map<String, Object>> result, String name, Object minutes) {

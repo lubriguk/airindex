@@ -32,6 +32,22 @@ export interface HubDelayRank {
   departureFlights: number;
   delayedDepartures: number;
   delayedDeparturePct: number;
+  /** Flights with reported arrival times */
+  arrivalFlights: number;
+  /** BTS NAS-attributed arrival delay minutes */
+  nasDelayMinutes: number;
+  /** Sum of five BTS attributed arrival-delay cause minute fields */
+  attributedDelayMinutes: number;
+  /**
+     * NAS minutes divided by arrivalFlights
+     * @nullable
+     */
+  nasMinutesPerArrival: number | null;
+  /**
+     * NAS minutes as a percentage of attributedDelayMinutes
+     * @nullable
+     */
+  nasAttributedSharePct: number | null;
 }
 
 export interface DelaySummary {

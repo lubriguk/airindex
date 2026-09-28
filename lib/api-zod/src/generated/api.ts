@@ -42,7 +42,7 @@ export const GetDataStatusResponse = zod.object({
 
 
 /**
- * Across all reporting airlines, group BTS daily rows by departure airport for the optional date range. The percentage is delayedDepartures divided by departureFlights, with a delay defined as 15 minutes or more. Only the 23 tracked airports in the supplied hub/base list are included; GUM is outside dataset coverage. Rows with no departure flights are omitted. Sorted by delayedDeparturePct descending, then airport code. This comparison is independent of the single-airport airline and metric filters.
+ * Across all reporting airlines, group BTS daily rows by departure airport for the optional date range. The percentage is delayedDepartures divided by departureFlights, with a delay defined as 15 minutes or more. NAS minutes are attributed arrival-delay minutes for flights originating at each airport. NAS minutes per arrival divides nasDelayMinutes by arrivalFlights; NAS share divides nasDelayMinutes by the sum of carrier, weather, NAS, security, and late-aircraft attributed delay minutes. A rate is null when its denominator is zero. NAS values must not be interpreted as departure delays or proof of local airport responsibility. Only the 23 tracked airports in the supplied hub/base list are included; GUM is outside dataset coverage. Rows with no departure flights are omitted. Rows are sorted by delayedDeparturePct descending, then airport code; clients can reorder by NAS measure using the unrounded count fields. This comparison is independent of the single-airport airline and metric filters.
  * @summary Rank the selected hubs and major bases by delayed-departure percentage
  */
 export const getHubDelayRankingQueryFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
@@ -59,7 +59,12 @@ export const GetHubDelayRankingResponseItem = zod.object({
   "flights": zod.number().int(),
   "departureFlights": zod.number().int(),
   "delayedDepartures": zod.number().int(),
-  "delayedDeparturePct": zod.number()
+  "delayedDeparturePct": zod.number(),
+  "arrivalFlights": zod.number().int().describe('Flights with reported arrival times'),
+  "nasDelayMinutes": zod.number().int().describe('BTS NAS-attributed arrival delay minutes'),
+  "attributedDelayMinutes": zod.number().int().describe('Sum of five BTS attributed arrival-delay cause minute fields'),
+  "nasMinutesPerArrival": zod.number().nullable().describe('NAS minutes divided by arrivalFlights'),
+  "nasAttributedSharePct": zod.number().nullable().describe('NAS minutes as a percentage of attributedDelayMinutes')
 })
 export const GetHubDelayRankingResponse = zod.array(GetHubDelayRankingResponseItem)
 
