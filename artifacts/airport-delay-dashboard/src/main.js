@@ -31,7 +31,7 @@ const apiRoot = new URL('api/', new URL(import.meta.env.BASE_URL, window.locatio
 const state = {
   airports: { pending: true }, status: { pending: true },
   results: {}, resultsKey: '', requestId: 0, controller: null, metadataId: 0,
-  airlineOptions: { pending: true }, airlineRequestId: 0,
+  airlineOptions: { pending: true }, airlineRequestId: 0, airlineController: null, airlineLoad: null,
   airlines: new Set(), rules: [], appliedRules: [], nextRuleId: 1,
   shownMetrics: new Set(DEFAULT_METRICS), appliedMetrics: new Set(DEFAULT_METRICS),
   compare: { pending: true }, compareRequestId: 0, compareController: null, activeView: 'detail',
@@ -207,32 +207,85 @@ function metric(label, value, note) {
 function renderAirlines() {
   const { airlineOptions, airlines } = state;
   const codes = (Array.isArray(airlineOptions.data) ? airlineOptions.data : [])
-    .map((item) => item.code).filter((code) => typeof code === 'string' && code.length);
-  $('airline-trigger').disabled = airlineOptions.pending;
-  $('airline-value').textContent = airlines.size ? [...airlines].sort().join(', ')
-    : airlineOptions.pending ? 'Loading airlines…' : airlineOptions.error ? 'Airlines unavailable' : 'All airlines';
+    .map((item) => item.code);
+  $('airline-trigger').disabled = !!airlineOptions.pending || !!airlineOptions.invalid
+    || (!airlineOptions.error && !codes.length);
+  $('airline-value').textContent = airlineOptions.invalid ? 'Choose valid dates'
+    : airlineOptions.pending ? 'Checking available airlines…'
+      : airlineOptions.error ? 'Airlines unavailable — retry'
+        : !codes.length ? 'No airlines with records'
+          : airlines.size ? [...airlines].sort().join(', ') : 'All available airlines';
   $('airline-options').innerHTML = airlineOptions.pending ? loading(90)
     : airlineOptions.error ? `<div class="airline-menu-note" role="alert">Could not load airlines. <button type="button" data-action="retry-airlines" data-testid="button-retry-airlines">Try again</button></div>`
-      : !codes.length ? '<p class="airline-menu-note">No carriers reported at this airport yet.</p>'
+      : !codes.length ? '<p class="airline-menu-note">No airlines have reported flights for this selection.</p>'
         : codes.sort().map((code) => `<label class="airline-option"><input type="checkbox" value="${escapeHtml(code)}" ${airlines.has(code) ? 'checked' : ''} data-testid="checkbox-airline-${escapeHtml(code)}"><span>${escapeHtml(code)}</span></label>`).join('');
   updateQueryChips();
 }
 
-async function loadAvailableAirlines() {
-  const id = ++state.airlineRequestId;
-  const airport = $('airport').value;
-  state.airlineOptions = { pending: true };
+function invalidateAirlineOptions() {
+  state.airlineController?.abort();
+  ++state.airlineRequestId;
+  state.airlineLoad = null;
+  state.airlineOptions = { invalid: true };
+  $('airline-scope-note').hidden = true;
+  $('airline-menu').hidden = true;
+  $('airline-trigger').setAttribute('aria-expanded', 'false');
   renderAirlines();
-  try {
-    // Intentionally unfiltered: choices must never disappear when dates or rules change.
-    const data = await request('delays/carriers', { airport });
-    if (id !== state.airlineRequestId) return;
-    state.airlineOptions = { data };
-  } catch {
-    if (id !== state.airlineRequestId) return;
-    state.airlineOptions = { error: true };
+}
+
+async function loadAvailableAirlines(force = false) {
+  if (!validateDates()) {
+    invalidateAirlineOptions();
+    return false;
   }
+  // The airline choice must not limit the list of other available airlines.
+  const params = filterValues();
+  params.delete('airline');
+  const scopeKey = params.toString();
+  if (state.airlineLoad?.key === scopeKey) return state.airlineLoad.promise;
+  if (!force && state.airlineOptions.scopeKey === scopeKey
+      && Array.isArray(state.airlineOptions.data)) return false;
+
+  state.airlineController?.abort();
+  const id = ++state.airlineRequestId;
+  const controller = new AbortController();
+  state.airlineController = controller;
+  state.airlineOptions = { pending: true, scopeKey };
+  $('airline-menu').hidden = true;
+  $('airline-trigger').setAttribute('aria-expanded', 'false');
   renderAirlines();
+  const task = (async () => {
+    try {
+      const data = await request('delays/carriers', params, controller.signal);
+      if (id !== state.airlineRequestId) return false;
+      if (!Array.isArray(data)) throw new Error('Unexpected airline response');
+      const available = [...new Map(data
+        .filter((item) => /^[A-Z0-9]{2}$/.test(item?.code) && Number(item.flights) > 0)
+        .map((item) => [item.code, item])).values()];
+      const codes = new Set(available.map((item) => item.code));
+      const removed = [...state.airlines].filter((code) => !codes.has(code));
+      removed.forEach((code) => state.airlines.delete(code));
+      const note = $('airline-scope-note');
+      note.textContent = removed.length
+        ? `${removed.join(', ')} ${removed.length === 1 ? 'has' : 'have'} no reported flights for this selection and ${removed.length === 1 ? 'was' : 'were'} removed from the airline filter.`
+        : '';
+      note.hidden = !removed.length;
+      state.airlineOptions = { data: available, scopeKey };
+      renderAirlines();
+      return removed.length > 0;
+    } catch {
+      if (id !== state.airlineRequestId) return false;
+      state.airlineOptions = { error: true, scopeKey };
+      renderAirlines();
+      return false;
+    }
+  })();
+  state.airlineLoad = { key: scopeKey, promise: task };
+  try {
+    return await task;
+  } finally {
+    if (state.airlineLoad?.promise === task) state.airlineLoad = null;
+  }
 }
 
 function renderRules() {
@@ -843,17 +896,22 @@ async function loadResults() {
   const id = ++state.requestId;
   const datesValid = validateDates();
   if (!datesValid) {
+    invalidateAirlineOptions();
     state.results = {};
     renderResults($('date-error').textContent);
     return;
   }
+  const oldResults = state.results;
+  const oldKey = state.resultsKey;
+  state.results = Object.fromEntries(Object.keys(paths).map((name) => [name, { pending: true }]));
+  renderResults();
+  await loadAvailableAirlines();
+  if (id !== state.requestId) return;
   state.controller = new AbortController();
   const params = filterValues();
   const key = params.toString();
-  const previous = state.resultsKey === key ? state.results : {};
+  const previous = oldKey === key ? oldResults : {};
   state.resultsKey = key;
-  state.results = Object.fromEntries(Object.keys(paths).map((name) => [name, { pending: true }]));
-  renderResults();
   await Promise.all(Object.entries(paths).map(async ([name, path]) => {
     try {
       const data = await request(path, params, state.controller.signal);
@@ -954,7 +1012,9 @@ document.addEventListener('click', (event) => {
   if (action === 'retry-airline-hubs') loadAirlineHubs();
   if (action === 'retry-metadata') loadMetadata();
   if (action === 'retry-faa') loadFaa(true);
-  if (action === 'retry-airlines') loadAvailableAirlines();
+  if (action === 'retry-airlines') loadAvailableAirlines(true).then((changed) => {
+    if (changed) loadResults();
+  });
   if (action === 'remove-rule') {
     const id = Number(event.target.closest('[data-rule-id]')?.dataset.ruleId);
     state.rules = state.rules.filter((rule) => rule.id !== id);
@@ -1014,9 +1074,9 @@ $('airport').addEventListener('change', () => {
     }
   }
   state.airlines.clear();
+  $('airline-scope-note').hidden = true;
   $('airline-menu').hidden = true;
   $('airline-trigger').setAttribute('aria-expanded', 'false');
-  loadAvailableAirlines();
   loadResults();
   renderFaa();
   loadFaa(true);
@@ -1038,6 +1098,7 @@ for (const id of ['from', 'to', 'compare-from', 'compare-to']) {
       } else {
         state.controller?.abort();
         ++state.requestId;
+        invalidateAirlineOptions();
         state.results = {};
         renderResults($('date-error').textContent);
       }
@@ -1113,7 +1174,7 @@ $('reset-dates').addEventListener('click', () => {
 });
 $('refresh').addEventListener('click', async () => {
   $('refresh').disabled = true;
-  await Promise.all([loadMetadata(), loadAvailableAirlines(), loadFaa(true)]);
+  await Promise.all([loadMetadata(), loadAvailableAirlines(true), loadFaa(true)]);
   $('refresh').disabled = false;
 });
 renderFaa();

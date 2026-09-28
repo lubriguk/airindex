@@ -118,9 +118,12 @@ button:disabled { cursor:not-allowed; }
 .filter-panel { display:block; padding:0; }
 .filter-main { display:flex; align-items:end; gap:15px; flex-wrap:wrap; padding:20px 22px; }
 .filter-main .field { flex:1; }
-.filter-main .field-airport { flex:1.55; }
+.filter-airport-group { display:flex; flex-direction:column; gap:12px; flex:1.75; min-width:260px; align-self:stretch; }
+.filter-main .filter-airport-group .field { flex:none!important; min-width:0; width:100%; }
 .filter-main .filter-error { flex-basis:100%; }
-.airline-field { min-width:190px; flex:1.2!important; }
+.airline-field { min-width:190px; }
+.airline-help,.airline-scope-note { margin:6px 0 0; color:#5d7981; font-size:11px; line-height:1.4; }
+.airline-scope-note { color:#865f30; }
 .airline-picker { position:relative; }
 .airline-trigger { text-align:left; display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; }
 .airline-trigger .picker-value { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -187,7 +190,7 @@ button:disabled { cursor:not-allowed; }
 .metrics .state-box { min-height:144px; }
 @media(max-width:900px) { .advanced-body { grid-template-columns:1fr; }.advanced-column + .advanced-column { border-left:0; border-top:1px solid #c9d9db; } }
 @media(max-width:700px) { .advanced-commit { padding:16px 15px; }.apply-filters { width:100%; }.raw-trends-head { align-items:start; flex-direction:column; }.raw-trends-grid { grid-template-columns:1fr; } }
-@media(max-width:700px) { .filter-main { padding:15px; gap:12px; }.filter-main .field { flex-basis:calc(50% - 8px); min-width:0; }.filter-main .field-airport,.filter-main .airline-field { flex-basis:100%; }.advanced-toggle { padding:13px 15px; }.advanced-column { padding:18px 15px; }.rule-row { grid-template-columns:minmax(0,1fr) minmax(0,.75fr); }.rule-row .rule-value { grid-column:1; }.rule-row .rule-remove { grid-column:2; justify-self:end; }.metric-options { max-height:300px; } }
+@media(max-width:700px) { .filter-main { padding:15px; gap:12px; }.filter-airport-group { flex-basis:100%; min-width:0; }.filter-main .field { flex-basis:calc(50% - 8px); min-width:0; }.advanced-toggle { padding:13px 15px; }.advanced-column { padding:18px 15px; }.rule-row { grid-template-columns:minmax(0,1fr) minmax(0,.75fr); }.rule-row .rule-value { grid-column:1; }.rule-row .rule-remove { grid-column:2; justify-self:end; }.metric-options { max-height:300px; } }
 @media(max-width:420px) { .metric-options { grid-template-columns:1fr; } }
 
 /* Compare desk: the same editorial paper and signal palette, with a dedicated reading surface. */
