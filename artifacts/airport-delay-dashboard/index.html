@@ -129,6 +129,7 @@
               <div class="panel-caption" id="compare-period">Full available period</div>
             </div>
             <div class="compare-deck"><p>Share of reported departure flights leaving at least 15 minutes late.</p></div>
+            <label class="compare-sort" for="departure-sort"><span>Sort departure airports</span><select class="control" id="departure-sort" data-testid="select-departure-sort"><option value="highest">Highest delay rate</option><option value="lowest">Lowest delay rate</option><option value="airport">Airport A–Z</option></select></label>
             <div id="compare-results" aria-live="polite" aria-atomic="false"></div>
           </section>
           <section class="compare-panel" id="nas-ranking" aria-labelledby="nas-title">
@@ -140,6 +141,7 @@
               <label><input type="radio" name="nas-measure" value="share" data-testid="radio-nas-share"><span>Share of causes</span></label>
             </div>
             <p class="nas-metric-description" id="nas-metric-description" aria-live="polite"></p>
+            <label class="compare-sort" for="nas-sort"><span>Sort NAS airports</span><select class="control" id="nas-sort" data-testid="select-nas-sort"><option value="highest">Highest selected measure</option><option value="lowest">Lowest selected measure</option><option value="airport">Airport A–Z</option></select></label>
             <div id="nas-results" aria-live="polite" aria-atomic="false"></div>
           </section>
           </div>

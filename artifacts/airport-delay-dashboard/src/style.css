@@ -223,6 +223,8 @@ button:disabled { cursor:not-allowed; }
 .compare-grid .compare-panel-head .panel-caption { font-size:9px; }
 .compare-deck { padding:15px 24px 18px; border-bottom:1px solid #d5e1e2; color:#5c7880; font-size:12px; line-height:1.55; min-height:70px; }
 .compare-deck p { margin:0; }
+.compare-sort { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 19px; border-bottom:1px solid #d5e1e2; color:#52727c; font:700 10px 'Space Mono',monospace; text-transform:uppercase; letter-spacing:.04em; }
+.compare-sort .control { flex:0 1 218px; min-width:0; height:36px; padding:0 10px; font:600 12px 'DM Sans',sans-serif; letter-spacing:normal; text-transform:none; }
 .compare-grid .compare-key,.compare-grid .hub-row { grid-template-columns:31px 76px minmax(80px,1fr) 70px; gap:8px; padding-left:19px; padding-right:19px; }
 .compare-grid .compare-key { font-size:8px; }
 .compare-grid .compare-key span:last-child { display:none; }
@@ -268,4 +270,5 @@ button:disabled { cursor:not-allowed; }
 .nas-note { padding:14px 19px 18px; border-top:1px solid #d5e1e2; color:#647e86; font-size:11px; line-height:1.6; }
 .nas-note p { margin:0; }
 @media(max-width:1150px) { .compare-grid { grid-template-columns:1fr; }.compare-grid .compare-panel-head { min-height:0; }.compare-deck { min-height:0; } }
+@media(max-width:540px) { .compare-sort { padding:10px 12px; font-size:9px; }.compare-sort .control { flex-basis:170px; font-size:11px; } }
 @media(max-width:540px) { .compare-index button { flex:1; justify-content:center; font-size:9px; }.compare-grid { gap:16px; }.compare-grid .compare-key,.compare-grid .hub-row { grid-template-columns:23px 63px minmax(40px,1fr) 55px; gap:5px; padding-left:11px; padding-right:11px; }.compare-grid .hub-place { display:none; }.compare-grid .hub-percent { font-size:13px; }.compare-grid .compare-key { font-size:7px; }.compare-grid .compare-panel-head { padding:20px 16px 15px; }.compare-deck { padding:13px 16px; }.nas-switch { margin:15px 11px 10px; }.nas-switch label { font-size:9px; }.nas-metric-description { margin:0 14px 14px; }.nas-key,.nas-summary { grid-template-columns:23px 55px minmax(30px,1fr) 69px; gap:5px; padding-left:11px; padding-right:11px; }.nas-key { font-size:7px; }.nas-identity .hub-code { font-size:16px; }.nas-value { font-size:12px; }.nas-detail { padding:3px 12px 17px 94px; }.nas-values div { display:block; }.nas-values dd { text-align:left; margin-top:3px; } }

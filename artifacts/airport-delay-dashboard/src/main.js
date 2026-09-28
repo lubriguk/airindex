@@ -1,4 +1,5 @@
 import { disposeChart, renderDailyChart, renderWeekdayChart } from './charts.js';
+import { nasRaw, sortDepartures, sortNas } from './comparison-sort.js';
 
 const CODES = ['ATL', 'DFW', 'DEN', 'ORD', 'LAX', 'JFK', 'LGA', 'EWR', 'SFO', 'SEA', 'CLT', 'PHX', 'MIA', 'PHL', 'DCA', 'IAD', 'IAH', 'DTW', 'MSP', 'SLC', 'BOS', 'PDX', 'ANC', 'HNL', 'DAL', 'HOU', 'MDW', 'BWI', 'LAS', 'MCO', 'FLL', 'SJU'];
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -34,6 +35,7 @@ const state = {
   airlines: new Set(), rules: [], nextRuleId: 1, shownMetrics: new Set(DEFAULT_METRICS),
   compare: { pending: true }, compareRequestId: 0, compareController: null, activeView: 'detail',
   nasMeasure: 'perArrival', expandedRankings: { departure: false, nas: false },
+  departureSort: 'highest', nasSort: 'highest',
 };
 const paths = {
   summary: 'delays/summary', daily: 'delays/daily', carriers: 'delays/carriers',
@@ -266,17 +268,10 @@ function compareDatesValid() {
 }
 
 const NAS_MEASURES = {
-  perArrival: { label: 'NAS minutes per arrived flight', short: 'min / arrival', description: 'NAS-attributed minutes ÷ flights with reported arrivals. Ranked by the unrounded ratio; N/A has no arrival-flight denominator.' },
+  perArrival: { label: 'NAS minutes per arrived flight', short: 'min / arrival', description: 'NAS-attributed minutes ÷ flights with reported arrivals. N/A has no arrival-flight denominator.' },
   total: { label: 'Total NAS-attributed arrival-delay minutes', short: 'minutes', description: 'Total NAS-attributed arrival-delay minutes. This measure also reflects the volume of flights originating at each airport.' },
-  share: { label: 'NAS share of five attributed arrival-delay causes', short: 'share', description: 'NAS minutes ÷ all five BTS attributed arrival-delay cause minutes. Ranked by the unrounded ratio; N/A has no attributed-minute denominator.' },
+  share: { label: 'NAS share of five attributed arrival-delay causes', short: 'share', description: 'NAS minutes ÷ all five BTS attributed arrival-delay cause minutes. N/A has no attributed-minute denominator.' },
 };
-
-function nasRaw(item, measure) {
-  const numerator = Number(item.nasDelayMinutes);
-  if (measure === 'total') return numerator;
-  const denominator = Number(measure === 'perArrival' ? item.arrivalFlights : item.attributedDelayMinutes);
-  return denominator > 0 ? numerator / denominator : null;
-}
 
 function nasDisplay(item, measure) {
   if (nasRaw(item, measure) == null) return 'N/A';
@@ -321,13 +316,15 @@ function renderComparison() {
     target.innerHTML = `<div class="compare-status">${empty('No reported departures for the hubs and major bases in this date range. Try a wider period.')}</div>`;
     nasTarget.innerHTML = `<div class="compare-status">${empty('No reported flights for the hubs and major bases in this date range. Try a wider period.')}</div>`;
   } else {
-    // Departure order comes from the API; NAS order must be derived from unrounded counts.
+    // Sort from unrounded counts so close values do not tie merely because their labels do.
     const metadata = state.airports.data ?? [];
-    const rows = compare.data.filter((item) => item && item.airport !== 'GUM' && Number(item.departureFlights) > 0 && Number.isFinite(Number(item.delayedDeparturePct)));
+    const rows = sortDepartures(compare.data.filter((item) =>
+      item && item.airport !== 'GUM' && Number(item.departureFlights) > 0
+      && Number.isFinite(Number(item.delayedDeparturePct))), state.departureSort);
     const visibleRows = state.expandedRankings.departure ? rows : rows.slice(0, 8);
     target.innerHTML = !rows.length ? `<div class="compare-status">${empty('No reported departures for the hubs and major bases in this date range. Try a wider period.')}</div>` : `
-      <div class="compare-key" aria-hidden="true"><span>Rank</span><span>Airport</span><span>Share of departures delayed</span><span>Rate</span><span>Delayed / departures</span></div>
-      <ol class="hub-list" aria-label="Hubs and major bases ranked by percent of departures delayed 15 minutes or more">
+      <div class="compare-key" aria-hidden="true"><span>${state.departureSort === 'airport' ? 'Order' : 'Rank'}</span><span>Airport</span><span>Share of departures delayed</span><span>Rate</span><span>Delayed / departures</span></div>
+      <ol class="hub-list" aria-label="Hubs and major bases sorted by ${state.departureSort === 'airport' ? 'airport code A to Z' : `${state.departureSort === 'highest' ? 'highest' : 'lowest'} percent of departures delayed 15 minutes or more`}">
        ${visibleRows.map((item, index) => {
         const code = String(item.airport);
         const airport = metadata.find((entry) => entry.code === code);
@@ -336,7 +333,7 @@ function renderComparison() {
         const delayed = number(Number(item.delayedDepartures));
         const departures = number(Number(item.departureFlights));
         const flights = number(Number(item.flights));
-        return `<li class="hub-row" tabindex="0" data-testid="row-hub-${escapeHtml(code)}" aria-label="Rank ${index + 1}, ${escapeHtml(code)}, ${escapeHtml(place)}: ${escapeHtml(item.delayedDeparturePct)} percent delayed, ${delayed} delayed departures of ${departures} departure flights, ${flights} total flights">
+        return `<li class="hub-row" tabindex="0" data-testid="row-hub-${escapeHtml(code)}" aria-label="${state.departureSort === 'airport' ? 'Position' : 'Rank'} ${index + 1}, ${escapeHtml(code)}, ${escapeHtml(place)}: ${escapeHtml(item.delayedDeparturePct)} percent delayed, ${delayed} delayed departures of ${departures} departure flights, ${flights} total flights">
           <span class="hub-rank">${String(index + 1).padStart(2, '0')}</span>
           <span class="hub-identity"><span class="hub-code">${escapeHtml(code)}</span><span class="hub-place" title="${escapeHtml(place)}">${escapeHtml(place)}</span></span>
           <span class="hub-track" aria-hidden="true"><span class="hub-bar" style="width:${Math.max(0, Math.min(100, pct))}%"></span></span>
@@ -346,29 +343,23 @@ function renderComparison() {
       }).join('')}
        </ol>${rows.length > 8 ? `<button class="ranking-expand" type="button" data-expand="departure" aria-expanded="${state.expandedRankings.departure}" data-testid="button-expand-departure">${state.expandedRankings.departure ? 'Show first 8 airports' : `Show all ${rows.length} airports`}</button>` : ''}<div class="compare-foot"><p>Bars use a fixed 0–100% scale. Exact percentages and counts are listed alongside each airport; focus a row to hear the full record.</p><span class="mono">${rows.length} airports with reported departures</span></div>`;
 
-    const nasRows = compare.data.filter((item) => item && item.airport && item.airport !== 'GUM')
-      .sort((a, b) => {
-        const aValue = nasRaw(a, measure);
-        const bValue = nasRaw(b, measure);
-        if (aValue == null && bValue != null) return 1;
-        if (bValue == null && aValue != null) return -1;
-        return (bValue ?? 0) - (aValue ?? 0) || String(a.airport).localeCompare(String(b.airport));
-      });
+    const nasRows = sortNas(compare.data.filter((item) =>
+      item && item.airport && item.airport !== 'GUM'), measure, state.nasSort);
     if (!nasRows.length) {
       nasTarget.innerHTML = `<div class="compare-status">${empty('No reported flights for the hubs and major bases in this date range. Try a wider period.')}</div>`;
       return;
     }
     const max = measure === 'share' ? 1 : Math.max(0, ...nasRows.map((item) => nasRaw(item, measure) ?? 0));
     const visibleNas = state.expandedRankings.nas ? nasRows : nasRows.slice(0, 8);
-    nasTarget.innerHTML = `<div class="nas-key" aria-hidden="true"><span>Rank</span><span>Airport</span><span>${escapeHtml(NAS_MEASURES[measure].short)}</span><span>Value</span></div>
-      <ol class="nas-list" aria-label="Airports ranked by ${escapeHtml(NAS_MEASURES[measure].label)}">
+    nasTarget.innerHTML = `<div class="nas-key" aria-hidden="true"><span>${state.nasSort === 'airport' ? 'Order' : 'Rank'}</span><span>Airport</span><span>${escapeHtml(NAS_MEASURES[measure].short)}</span><span>Value</span></div>
+      <ol class="nas-list" aria-label="Airports sorted by ${state.nasSort === 'airport' ? 'airport code A to Z' : `${state.nasSort === 'highest' ? 'highest' : 'lowest'} ${escapeHtml(NAS_MEASURES[measure].label)}`}">
       ${visibleNas.map((item, index) => {
         const code = String(item.airport);
         const airport = metadata.find((entry) => entry.code === code);
         const place = airport ? [airport.city, airport.name].filter(Boolean).join(' · ') : 'Airport metadata unavailable';
         const value = nasRaw(item, measure);
         const width = value == null || !max ? 0 : Math.max(0, Math.min(100, value / max * 100));
-        return `<li class="nas-item" data-testid="row-nas-${escapeHtml(code)}"><details><summary class="nas-summary" data-testid="button-nas-details-${escapeHtml(code)}" aria-label="Rank ${index + 1}, ${escapeHtml(code)}, ${escapeHtml(place)}: ${escapeHtml(NAS_MEASURES[measure].label)} ${escapeHtml(nasDisplay(item, measure))}. Open for all three measures.">
+        return `<li class="nas-item" data-testid="row-nas-${escapeHtml(code)}"><details><summary class="nas-summary" data-testid="button-nas-details-${escapeHtml(code)}" aria-label="${state.nasSort === 'airport' ? 'Position' : 'Rank'} ${index + 1}, ${escapeHtml(code)}, ${escapeHtml(place)}: ${escapeHtml(NAS_MEASURES[measure].label)} ${escapeHtml(nasDisplay(item, measure))}. Open for all three measures.">
           <span class="nas-rank">${String(index + 1).padStart(2, '0')}</span>
           <span class="nas-identity"><span class="hub-code">${escapeHtml(code)}</span></span>
           <span class="nas-track" aria-hidden="true"><span class="nas-bar" style="width:${width}%"></span></span>
@@ -376,7 +367,7 @@ function renderComparison() {
         </summary><div class="nas-detail"><p class="nas-place">${escapeHtml(place)}</p>${nasDetails(item)}</div></details></li>`;
       }).join('')}</ol>
       ${nasRows.length > 8 ? `<button class="ranking-expand" type="button" data-expand="nas" aria-expanded="${state.expandedRankings.nas}" data-testid="button-expand-nas">${state.expandedRankings.nas ? 'Show first 8 airports' : `Show all ${nasRows.length} airports`}</button>` : ''}
-      <div class="nas-note"><p>${measure === 'share' ? 'Bars use a fixed 0–100% scale.' : 'Bars scale to the highest eligible airport in this selection.'} N/A airports follow ranked values. Open any airport for all three measures and their underlying counts.</p></div>`;
+      <div class="nas-note"><p>${measure === 'share' ? 'Bars use a fixed 0–100% scale.' : 'Bars scale to the highest eligible airport in this selection.'} ${state.nasSort === 'airport' ? 'Airport codes are ordered A–Z.' : 'Highest and lowest sorts use unrounded values; N/A airports follow ranked values.'} Open any airport for all three measures and their underlying counts.</p></div>`;
   }
 }
 
@@ -575,6 +566,12 @@ $('nas-ranking').addEventListener('change', (event) => {
   state.nasMeasure = event.target.value;
   renderComparison();
 });
+for (const [id, key] of [['departure-sort', 'departureSort'], ['nas-sort', 'nasSort']]) {
+  $(id).addEventListener('change', () => {
+    state[key] = $(id).value;
+    renderComparison();
+  });
+}
 $('airline-trigger').addEventListener('click', () => {
   const willOpen = $('airline-menu').hidden;
   $('airline-menu').hidden = !willOpen;
