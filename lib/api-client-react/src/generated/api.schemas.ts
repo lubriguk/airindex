@@ -26,6 +26,14 @@ export interface DataStatus {
   importing: boolean;
 }
 
+export interface HubDelayRank {
+  airport: string;
+  flights: number;
+  departureFlights: number;
+  delayedDepartures: number;
+  delayedDeparturePct: number;
+}
+
 export interface DelaySummary {
   airport: string;
   /** @nullable */
@@ -143,6 +151,17 @@ export type AirlineParameter = string[];
  * Repeat for AND conditions on individual daily airport-and-airline aggregate rows, before grouping into dashboard totals. Format column:operator:nonnegativeInteger; operators are gte, lte, eq. An empty set of matching rows returns empty data.
  */
 export type MetricRuleParameter = string[];
+
+export type GetHubDelayRankingParams = {
+/**
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+from?: FromParameter;
+/**
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+to?: ToParameter;
+};
 
 export type GetDelaySummaryParams = {
 airport: AirportParameter;

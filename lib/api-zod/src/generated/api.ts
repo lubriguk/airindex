@@ -42,6 +42,29 @@ export const GetDataStatusResponse = zod.object({
 
 
 /**
+ * Across all reporting airlines, group BTS daily rows by departure airport for the optional date range. The percentage is delayedDepartures divided by departureFlights, with a delay defined as 15 minutes or more. Only the 23 tracked airports in the supplied hub/base list are included; GUM is outside dataset coverage. Rows with no departure flights are omitted. Sorted by delayedDeparturePct descending, then airport code. This comparison is independent of the single-airport airline and metric filters.
+ * @summary Rank the selected hubs and major bases by delayed-departure percentage
+ */
+export const getHubDelayRankingQueryFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getHubDelayRankingQueryToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const GetHubDelayRankingQueryParams = zod.object({
+  "from": zod.coerce.string().regex(getHubDelayRankingQueryFromRegExp).optional(),
+  "to": zod.coerce.string().regex(getHubDelayRankingQueryToRegExp).optional()
+})
+
+export const GetHubDelayRankingResponseItem = zod.object({
+  "airport": zod.string(),
+  "flights": zod.number().int(),
+  "departureFlights": zod.number().int(),
+  "delayedDepartures": zod.number().int(),
+  "delayedDeparturePct": zod.number()
+})
+export const GetHubDelayRankingResponse = zod.array(GetHubDelayRankingResponseItem)
+
+
+/**
  * @summary Key flight and delay metrics for an airport
  */
 export const getDelaySummaryQueryFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');

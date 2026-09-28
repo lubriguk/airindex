@@ -26,8 +26,10 @@ import type {
   GetDailyDelaysParams,
   GetDelayCausesParams,
   GetDelaySummaryParams,
+  GetHubDelayRankingParams,
   GetWeekdayDelaysParams,
   HealthStatus,
+  HubDelayRank,
   WeekdayDelay
 } from './api.schemas';
 
@@ -278,6 +280,91 @@ export function useGetDataStatus<TData = Awaited<ReturnType<typeof getDataStatus
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetDataStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetHubDelayRankingUrl = (params?: GetHubDelayRankingParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/delays/hub-ranking?${stringifiedParams}` : `/api/delays/hub-ranking`
+}
+
+/**
+ * Across all reporting airlines, group BTS daily rows by departure airport for the optional date range. The percentage is delayedDepartures divided by departureFlights, with a delay defined as 15 minutes or more. Only the 23 tracked airports in the supplied hub/base list are included; GUM is outside dataset coverage. Rows with no departure flights are omitted. Sorted by delayedDeparturePct descending, then airport code. This comparison is independent of the single-airport airline and metric filters.
+ * @summary Rank the selected hubs and major bases by delayed-departure percentage
+ */
+export const getHubDelayRanking = async (params?: GetHubDelayRankingParams, options?: Parameters<typeof customFetch>[1]): Promise<HubDelayRank[]> => {
+
+  return customFetch<HubDelayRank[]>(getGetHubDelayRankingUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetHubDelayRankingQueryKey = (params?: GetHubDelayRankingParams,) => {
+    return [
+    `/api/delays/hub-ranking`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetHubDelayRankingQueryOptions = <TData = Awaited<ReturnType<typeof getHubDelayRanking>>, TError = ErrorType<void>>(params?: GetHubDelayRankingParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHubDelayRanking>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHubDelayRankingQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHubDelayRanking>>> = ({ signal }) => getHubDelayRanking(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHubDelayRanking>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetHubDelayRankingQueryResult = NonNullable<Awaited<ReturnType<typeof getHubDelayRanking>>>
+export type GetHubDelayRankingQueryError = ErrorType<void>
+
+
+/**
+ * @summary Rank the selected hubs and major bases by delayed-departure percentage
+ */
+
+export function useGetHubDelayRanking<TData = Awaited<ReturnType<typeof getHubDelayRanking>>, TError = ErrorType<void>>(
+ params?: GetHubDelayRankingParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getHubDelayRanking>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetHubDelayRankingQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

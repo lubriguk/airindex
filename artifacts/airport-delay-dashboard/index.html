@@ -34,6 +34,11 @@
         <div class="top-right"><span class="desktop-only">BTS · Reporting carriers</span><span><i class="live-dot"></i><span id="dataset-label">Coverage pending</span></span></div>
       </header>
       <main class="dashboard">
+        <nav class="view-nav" aria-label="Research views">
+          <a class="view-tab" id="detail-tab" href="#airport-detail" aria-current="page" data-testid="link-airport-detail"><span class="view-tab-index" aria-hidden="true">01 /</span> Airport detail</a>
+          <a class="view-tab" id="compare-tab" href="#compare-hubs" data-testid="link-compare-hubs"><span class="view-tab-index" aria-hidden="true">02 /</span> Compare hubs</a>
+        </nav>
+        <div id="detail-view">
         <div class="page-head fade-in">
           <div><div class="eyebrow">Research desk / Airport performance</div><h1 class="page-title">Departure reliability</h1><p class="page-desc">A closer look at when flights leave, who flies them, and what happens next.</p></div>
           <div class="head-stamp"><svg class="icon" aria-hidden="true"><use href="#icon-signal"></use></svg> ORIGIN-BASED ANALYSIS / 15-MIN THRESHOLD</div>
@@ -92,6 +97,39 @@
           <p><strong>Reading the numbers.</strong> “On time” means departure delay under 15 minutes. Cancellation and diversion are separate flight outcomes. Averages and percentages reflect only records available in the selected range; absence of records is never shown as zero performance.</p>
           <p>Source: <a href="https://www.transtats.bts.gov/Fields.asp?gnoyr_VQ=FGJ" target="_blank" rel="noopener noreferrer" data-testid="link-footer-bts">Bureau of Transportation Statistics</a><br />Reporting Carrier On-Time Performance<br /><a id="dataset-source" href="https://www.transtats.bts.gov/ONTIME/" target="_blank" rel="noopener noreferrer" data-testid="link-dataset-source">Dataset source</a></p>
         </footer>
+        </div>
+        <section id="compare-view" aria-labelledby="compare-title" hidden>
+          <div class="compare-intro fade-in">
+            <div class="eyebrow">Research desk / Cross-airport comparison</div>
+            <h1 class="page-title" id="compare-title">Compare hubs.</h1>
+            <p class="page-desc">Where are departures most likely to run 15 minutes late? An at-a-glance ranking of hubs and major bases, across all reporting airlines.</p>
+          </div>
+          <div class="filter-panel compare-filter" role="group" aria-label="Comparison date range">
+            <label class="field"><span class="field-label">From</span><input class="control" id="compare-from" type="date" data-testid="input-compare-from" /></label>
+            <label class="field"><span class="field-label">To</span><input class="control" id="compare-to" type="date" data-testid="input-compare-to" /></label>
+            <div class="filter-actions">
+              <button class="icon-button" id="compare-reset" type="button" data-testid="button-compare-all-dates"><svg class="icon" aria-hidden="true"><use href="#icon-reset"></use></svg> All dates</button>
+              <button class="icon-button" id="compare-refresh" type="button" data-testid="button-compare-refresh"><svg class="icon" aria-hidden="true"><use href="#icon-refresh"></use></svg> Refresh</button>
+            </div>
+            <p class="filter-error" id="compare-date-error" role="alert" hidden></p>
+          </div>
+          <section class="coverage fade-in" aria-label="Comparison data coverage" data-testid="section-compare-coverage">
+            <div class="coverage-primary"><div class="coverage-icon"><svg class="icon" aria-hidden="true"><use href="#icon-data"></use></svg></div><div><div class="coverage-label">Dataset provenance</div><div class="coverage-value">BTS On-Time Performance</div></div></div>
+            <div class="coverage-cell"><div class="coverage-label">Available records</div><strong id="compare-records">Loading…</strong></div>
+            <div class="coverage-cell"><div class="coverage-label">Date coverage</div><strong id="compare-coverage-dates" class="coverage-date">Loading…</strong></div>
+            <div class="coverage-cell"><div class="coverage-label">Source &amp; scope</div><strong class="coverage-source"><a href="https://www.transtats.bts.gov/Fields.asp?gnoyr_VQ=FGJ" target="_blank" rel="noopener noreferrer">Official BTS fields <svg class="icon icon-inline" aria-hidden="true"><use href="#icon-link"></use></svg></a></strong><span class="coverage-months" id="compare-months">Coverage pending</span></div>
+          </section>
+          <div id="compare-notices" aria-live="polite"></div>
+          <p class="compare-scope">Hubs and major bases · All reporting airlines · Origin departures · GUM excluded (not covered)</p>
+          <section class="compare-panel" aria-labelledby="ranking-title">
+            <div class="compare-panel-head">
+              <div><div class="panel-kicker">01 / Departure delay index</div><h2 class="panel-title" id="ranking-title">The 15-minute threshold</h2></div>
+              <div class="panel-caption" id="compare-period">Full available period</div>
+            </div>
+            <div id="compare-results" aria-live="polite" aria-atomic="false"></div>
+          </section>
+          <footer class="footer"><p><strong>Reading the ranking.</strong> Delayed departures are flights leaving 15 minutes or more after schedule. The percentage is delayed departures divided by reported departure flights for each airport, not an airline-specific hub performance measure. Airports with no reported departures in the selected dates are not ranked.</p><p>Source: <a href="https://www.transtats.bts.gov/ONTIME/" target="_blank" rel="noopener noreferrer">Bureau of Transportation Statistics</a><br />Reporting Carrier On-Time Performance</p></footer>
+        </section>
       </main>
     </div>
     <script type="module" src="/src/main.js"></script>

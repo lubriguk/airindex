@@ -47,6 +47,19 @@ public final class AirportApi {
             "security_delay_minutes", "late_aircraft_delay_minutes");
     private static final Map<String, String> OPERATORS =
             Map.of("gte", ">=", "lte", "<=", "eq", "=");
+    // User-supplied shortlist, including major bases and Alaska's large LAX presence.
+    // Spirit's former FLL hub is not listed as current; FLL is retained via JetBlue.
+    // GUM is omitted because the BTS airport dataset does not cover it.
+    private static final Map<String, List<String>> COMPARISON_AIRPORTS_BY_AIRLINE = Map.of(
+            "United", List.of("ORD", "DEN", "IAH", "EWR", "SFO", "IAD", "LAX"),
+            "Alaska and Hawaiian", List.of("SEA", "PDX", "ANC", "HNL", "LAX"),
+            "Southwest", List.of("DAL", "HOU", "MDW", "BWI", "LAS", "DEN", "PHX", "MCO", "ATL"),
+            "JetBlue", List.of("JFK", "BOS", "FLL", "MCO", "SJU"),
+            "Frontier", List.of("DEN", "LAS", "MCO"),
+            "Allegiant", List.of("LAS"));
+    private static final List<String> COMPARISON_AIRPORTS =
+            COMPARISON_AIRPORTS_BY_AIRLINE.values().stream()
+                    .flatMap(List::stream).distinct().sorted().toList();
     private static final List<String[]> AIRPORTS = List.<String[]>of(
             new String[]{"ATL", "Hartsfield–Jackson Atlanta International", "Atlanta, GA"},
             new String[]{"DFW", "Dallas Fort Worth International", "Dallas–Fort Worth, TX"},
@@ -100,6 +113,7 @@ public final class AirportApi {
         register(server, "/api/healthz", this::health);
         register(server, "/api/airports", this::airports);
         register(server, "/api/data-status", this::dataStatus);
+        register(server, "/api/delays/hub-ranking", this::hubRanking);
         register(server, "/api/delays/summary", this::summary);
         register(server, "/api/delays/daily", this::daily);
         register(server, "/api/delays/carriers", this::carriers);
@@ -185,6 +199,50 @@ public final class AirportApi {
         }
         result.put("sourceUrl", BTS_SOURCE_URL);
         result.put("importing", importing.getAsBoolean());
+        sendJson(exchange, 200, result);
+    }
+
+    private void hubRanking(HttpExchange exchange) throws Exception {
+        DateRange range = readHubDateRange(exchange);
+        if (range == null) return;
+        String placeholders = String.join(", ", COMPARISON_AIRPORTS.stream()
+                .map(airport -> "?").toList());
+        String sql = """
+                SELECT airport, SUM(flights) AS flights,
+                  SUM(departure_flights) AS "departureFlights",
+                  SUM(delayed_departures) AS "delayedDepartures",
+                  ROUND(100.0 * SUM(delayed_departures)
+                    / NULLIF(SUM(departure_flights), 0), 1) AS "delayedDeparturePct"
+                FROM airport_delay_daily
+                WHERE airport IN (%s)
+                  AND (?::date IS NULL OR flight_date >= ?::date)
+                  AND (?::date IS NULL OR flight_date <= ?::date)
+                GROUP BY airport
+                HAVING SUM(departure_flights) > 0
+                ORDER BY SUM(delayed_departures)::numeric
+                  / NULLIF(SUM(departure_flights), 0) DESC, airport
+                """.formatted(placeholders);
+        List<Map<String, Object>> result = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            int index = 1;
+            for (String airport : COMPARISON_AIRPORTS) statement.setString(index++, airport);
+            setNullableString(statement, index++, range.from);
+            setNullableString(statement, index++, range.from);
+            setNullableString(statement, index++, range.to);
+            setNullableString(statement, index, range.to);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("airport", rows.getString("airport"));
+                    row.put("flights", integer(rows.getObject("flights")));
+                    row.put("departureFlights", integer(rows.getObject("departureFlights")));
+                    row.put("delayedDepartures", integer(rows.getObject("delayedDepartures")));
+                    row.put("delayedDeparturePct", decimal(rows.getObject("delayedDeparturePct")));
+                    result.add(row);
+                }
+            }
+        }
         sendJson(exchange, 200, result);
     }
 
@@ -406,6 +464,29 @@ public final class AirportApi {
         return new Filter(airport, from, to, airlines, rules);
     }
 
+    private DateRange readHubDateRange(HttpExchange exchange) throws IOException {
+        Map<String, List<String>> query;
+        try {
+            query = parseQuery(exchange.getRequestURI().getRawQuery());
+        } catch (IllegalArgumentException exception) {
+            sendJson(exchange, 400, Map.of("error", "Choose a valid date range (YYYY-MM-DD)."));
+            return null;
+        }
+        String from = single(query, "from");
+        String to = single(query, "to");
+        boolean valid = Set.of("from", "to").containsAll(query.keySet())
+                && (!query.containsKey("from") || query.get("from").size() == 1)
+                && (!query.containsKey("to") || query.get("to").size() == 1)
+                && (from == null || validDate(from))
+                && (to == null || validDate(to))
+                && (from == null || to == null || !LocalDate.parse(from).isAfter(LocalDate.parse(to)));
+        if (!valid) {
+            sendJson(exchange, 400, Map.of("error", "Choose a valid date range (YYYY-MM-DD)."));
+            return null;
+        }
+        return new DateRange(from, to);
+    }
+
     private static String where(Filter filter) {
         StringBuilder sql = new StringBuilder(WHERE);
         if (!filter.airlines.isEmpty()) {
@@ -525,4 +606,6 @@ public final class AirportApi {
     }
 
     private record MetricRule(String column, String operator, long threshold) {}
+
+    private record DateRange(String from, String to) {}
 }

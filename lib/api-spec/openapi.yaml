@@ -52,6 +52,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DataStatus"
+  /delays/hub-ranking:
+    get:
+      operationId: getHubDelayRanking
+      tags: [airports]
+      summary: Rank the selected hubs and major bases by delayed-departure percentage
+      description: >-
+        Across all reporting airlines, group BTS daily rows by departure airport
+        for the optional date range. The percentage is delayedDepartures divided
+        by departureFlights, with a delay defined as 15 minutes or more.
+        Only the 23 tracked airports in the supplied hub/base list are included;
+        GUM is outside dataset coverage. Rows with no departure flights are omitted.
+        Sorted by delayedDeparturePct descending, then airport code.
+        This comparison is independent of the single-airport airline and metric filters.
+      parameters:
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Hub and base airport delay ranking
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HubDelayRank"
+        "400":
+          description: Invalid date range
   /delays/summary:
     get:
       operationId: getDelaySummary
@@ -229,6 +256,15 @@ components:
           type: array
           items: { type: string }
         importing: { type: boolean }
+    HubDelayRank:
+      type: object
+      required: [airport, flights, departureFlights, delayedDepartures, delayedDeparturePct]
+      properties:
+        airport: { type: string }
+        flights: { type: integer }
+        departureFlights: { type: integer }
+        delayedDepartures: { type: integer }
+        delayedDeparturePct: { type: number }
     DelaySummary:
       type: object
       required: [airport, from, to, flights, departureFlights, arrivalFlights, delayedDepartures, cancelledFlights, divertedFlights, totalDepDelayMinutes, totalArrDelayMinutes, carrierDelayMinutes, weatherDelayMinutes, nasDelayMinutes, securityDelayMinutes, lateAircraftDelayMinutes, onTimeDeparturePct, cancellationPct, avgDepartureDelayMinutes, avgArrivalDelayMinutes]

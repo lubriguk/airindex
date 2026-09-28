@@ -32,6 +32,7 @@ const state = {
   results: {}, requestId: 0, controller: null, metadataId: 0,
   airlineOptions: { pending: true }, airlineRequestId: 0,
   airlines: new Set(), rules: [], nextRuleId: 1, shownMetrics: new Set(DEFAULT_METRICS),
+  compare: { pending: true }, compareRequestId: 0, compareController: null, activeView: 'detail',
 };
 const paths = {
   summary: 'delays/summary', daily: 'delays/daily', carriers: 'delays/carriers',
@@ -181,9 +182,16 @@ function updateCoverage() {
   $('date-coverage').textContent = status.pending ? 'Loading…' : status.error ? 'Unavailable'
     : data?.firstDate && data?.lastDate ? `${dateLabel(data.firstDate)} – ${dateLabel(data.lastDate)}` : 'No dates loaded';
   $('loaded-months').textContent = `${data?.loadedMonths?.length ?? 0} months loaded · all airports`;
+  $('compare-records').textContent = status.pending ? 'Loading…' : status.error ? 'Unavailable' : number(data?.totalFlights ?? 0);
+  $('compare-coverage-dates').textContent = status.pending ? 'Loading…' : status.error ? 'Unavailable'
+    : data?.firstDate && data?.lastDate ? `${dateLabel(data.firstDate)} – ${dateLabel(data.lastDate)}` : 'No dates loaded';
+  $('compare-months').textContent = `${data?.loadedMonths?.length ?? 0} months loaded · all airports`;
   $('from').max = $('to').value || data?.lastDate || '';
   $('to').max = data?.lastDate || '';
   $('to').min = $('from').value || '';
+  $('compare-from').max = $('compare-to').value || data?.lastDate || '';
+  $('compare-to').max = data?.lastDate || '';
+  $('compare-to').min = $('compare-from').value || '';
   const source = $('dataset-source');
   source.hidden = !data?.sourceUrl?.startsWith('https://');
   if (!source.hidden) source.href = data.sourceUrl;
@@ -209,6 +217,25 @@ function updateCoverage() {
   if (state.airports.error) notice('Airport names could not be loaded. Airport code selection remains available.', 'airports', 'status-airports-error');
   if (status.error) notice('Dataset coverage is unavailable. Metrics may still load, but date completeness cannot be verified.', 'coverage', 'status-coverage-error');
   if (data?.importing) notice('BTS records are being imported. Current figures may cover only part of the published dataset; check the dates above before interpreting results.', null, 'status-importing');
+  const compareNotices = $('compare-notices');
+  compareNotices.replaceChildren();
+  if (status.error || state.airports.error || data?.importing) {
+    const note = document.createElement('div');
+    note.className = 'import-note';
+    note.setAttribute('role', 'status');
+    note.textContent = data?.importing
+      ? 'BTS records are being imported. The ranking may cover only part of the published dataset.'
+      : status.error ? 'Dataset coverage is unavailable. Ranking data may still load, but date completeness cannot be verified.'
+        : 'Airport names are unavailable; airport codes remain visible.';
+    if (status.error || state.airports.error) {
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.dataset.action = 'retry-metadata';
+      retry.textContent = 'Retry';
+      note.append(' ', retry);
+    }
+    compareNotices.append(note);
+  }
 }
 
 async function loadMetadata() {
@@ -223,6 +250,113 @@ async function loadMetadata() {
   populateAirports();
   updateCoverage();
   renderResults();
+  renderComparison();
+}
+
+function compareDatesValid() {
+  const from = $('compare-from').value;
+  const to = $('compare-to').value;
+  const message = from && to && from > to ? 'Start date must be on or before end date.' : '';
+  $('compare-date-error').textContent = message;
+  $('compare-date-error').hidden = !message;
+  $('compare-from').max = to || state.status.data?.lastDate || '';
+  $('compare-to').min = from || '';
+  return !message;
+}
+
+function renderComparison() {
+  const { compare } = state;
+  const from = $('compare-from').value;
+  const to = $('compare-to').value;
+  $('compare-period').textContent = from || to
+    ? `${from ? dateLabel(from) : 'First available'} → ${to ? dateLabel(to) : 'Latest available'}`
+    : 'Full available period';
+  const target = $('compare-results');
+  if (compare.invalid) {
+    target.innerHTML = `<div class="compare-status">${empty('Choose a date range with the start on or before the end.')}</div>`;
+  } else if (compare.pending) {
+    target.innerHTML = `<div class="compare-status">${loading(280)}</div>`;
+  } else if (compare.error) {
+    target.innerHTML = `<div class="compare-status">${empty('The hub ranking could not be retrieved. Check the connection and retry.', true).replace('data-action="retry"', 'data-action="retry-compare"')}</div>`;
+  } else if (!Array.isArray(compare.data) || !compare.data.length) {
+    target.innerHTML = `<div class="compare-status">${empty('No reported departures for the hubs and major bases in this date range. Try a wider period.')}</div>`;
+  } else {
+    // The endpoint supplies the ordered ranking; keep its order and never apply detail-view filters.
+    const metadata = state.airports.data ?? [];
+    const rows = compare.data.filter((item) => item && item.airport !== 'GUM' && Number(item.departureFlights) > 0 && Number.isFinite(Number(item.delayedDeparturePct)));
+    if (!rows.length) {
+      target.innerHTML = `<div class="compare-status">${empty('No reported departures for the hubs and major bases in this date range. Try a wider period.')}</div>`;
+      return;
+    }
+    target.innerHTML = `
+      <div class="compare-key" aria-hidden="true"><span>Rank</span><span>Airport</span><span>Share of departures delayed</span><span>Rate</span><span>Delayed / departures</span></div>
+      <ol class="hub-list" aria-label="Hubs and major bases ranked by percent of departures delayed 15 minutes or more">
+      ${rows.map((item, index) => {
+        const code = String(item.airport);
+        const airport = metadata.find((entry) => entry.code === code);
+        const place = airport ? [airport.city, airport.name].filter(Boolean).join(' · ') : 'Airport metadata unavailable';
+        const pct = Number(item.delayedDeparturePct);
+        const delayed = number(Number(item.delayedDepartures));
+        const departures = number(Number(item.departureFlights));
+        const flights = number(Number(item.flights));
+        return `<li class="hub-row" tabindex="0" data-testid="row-hub-${escapeHtml(code)}" aria-label="Rank ${index + 1}, ${escapeHtml(code)}, ${escapeHtml(place)}: ${escapeHtml(item.delayedDeparturePct)} percent delayed, ${delayed} delayed departures of ${departures} departure flights, ${flights} total flights">
+          <span class="hub-rank">${String(index + 1).padStart(2, '0')}</span>
+          <span class="hub-identity"><span class="hub-code">${escapeHtml(code)}</span><span class="hub-place" title="${escapeHtml(place)}">${escapeHtml(place)}</span></span>
+          <span class="hub-track" aria-hidden="true"><span class="hub-bar" style="width:${Math.max(0, Math.min(100, pct))}%"></span></span>
+          <strong class="hub-percent">${escapeHtml(item.delayedDeparturePct)}%</strong>
+          <span class="hub-counts"><strong>${delayed} / ${departures}</strong>${flights} total flights</span>
+        </li>`;
+      }).join('')}
+      </ol><div class="compare-foot"><p>Bars use a fixed 0–100% scale. Exact percentages and counts are listed alongside each airport; focus a row to hear the full record.</p><span class="mono">${rows.length} airports with reported departures</span></div>`;
+  }
+}
+
+async function loadComparison() {
+  state.compareController?.abort();
+  const id = ++state.compareRequestId;
+  if (!compareDatesValid()) {
+    state.compare = { invalid: true };
+    renderComparison();
+    return;
+  }
+  state.compareController = new AbortController();
+  const params = {};
+  if ($('compare-from').value) params.from = $('compare-from').value;
+  if ($('compare-to').value) params.to = $('compare-to').value;
+  state.compare = { pending: true };
+  renderComparison();
+  try {
+    const data = await request('delays/hub-ranking', params, state.compareController.signal);
+    if (id !== state.compareRequestId) return;
+    state.compare = { data };
+  } catch {
+    if (id !== state.compareRequestId) return;
+    state.compare = { error: true };
+  }
+  renderComparison();
+}
+
+function switchView() {
+  const next = location.hash === '#compare-hubs' ? 'compare' : 'detail';
+  if (state.activeView !== next) {
+    const source = next === 'compare' ? ['from', 'to'] : ['compare-from', 'compare-to'];
+    const destination = next === 'compare' ? ['compare-from', 'compare-to'] : ['from', 'to'];
+    destination.forEach((id, index) => { $(id).value = $(source[index]).value; });
+    state.activeView = next;
+    if (next === 'compare') loadComparison();
+    else loadResults();
+  } else if (next === 'compare' && state.compare.pending && !state.compareController) {
+    loadComparison();
+  }
+  $('detail-view').hidden = next !== 'detail';
+  $('compare-view').hidden = next !== 'compare';
+  $('detail-tab').removeAttribute('aria-current');
+  $('compare-tab').removeAttribute('aria-current');
+  $(`${next}-tab`).setAttribute('aria-current', 'page');
+  if (next === 'compare') {
+    $('airline-menu').hidden = true;
+    $('airline-trigger').setAttribute('aria-expanded', 'false');
+  }
 }
 
 function filterValues() {
@@ -342,6 +476,7 @@ renderResults();
 document.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'retry') loadResults();
+  if (action === 'retry-compare') loadComparison();
   if (action === 'retry-metadata') loadMetadata();
   if (action === 'retry-airlines') loadAvailableAirlines();
   if (action === 'remove-rule') {
@@ -383,6 +518,18 @@ $('airport').addEventListener('change', () => {
   loadResults();
 });
 for (const id of ['from', 'to']) $(id).addEventListener('change', loadResults);
+for (const id of ['compare-from', 'compare-to']) $(id).addEventListener('change', loadComparison);
+$('compare-reset').addEventListener('click', () => {
+  $('compare-from').value = '';
+  $('compare-to').value = '';
+  loadComparison();
+});
+$('compare-refresh').addEventListener('click', async () => {
+  $('compare-refresh').disabled = true;
+  await Promise.all([loadMetadata(), loadComparison()]);
+  $('compare-refresh').disabled = false;
+});
+window.addEventListener('hashchange', switchView);
 $('advanced-toggle').addEventListener('click', () => {
   const expanded = $('advanced-toggle').getAttribute('aria-expanded') !== 'true';
   $('advanced-toggle').setAttribute('aria-expanded', String(expanded));
@@ -443,3 +590,4 @@ $('refresh').addEventListener('click', async () => {
   $('refresh').disabled = false;
 });
 Promise.all([loadMetadata(), loadAvailableAirlines(), loadResults()]);
+switchView();
