@@ -463,12 +463,38 @@ components:
         avgArrivalDelayMinutes: { type: number }
     DailyDelay:
       type: object
-      required: [date, flights, delayedDepartures, cancelledFlights, onTimeDeparturePct, avgDepartureDelayMinutes]
+      required:
+        - date
+        - flights
+        - departureFlights
+        - arrivalFlights
+        - delayedDepartures
+        - cancelledFlights
+        - divertedFlights
+        - totalDepDelayMinutes
+        - totalArrDelayMinutes
+        - carrierDelayMinutes
+        - weatherDelayMinutes
+        - nasDelayMinutes
+        - securityDelayMinutes
+        - lateAircraftDelayMinutes
+        - onTimeDeparturePct
+        - avgDepartureDelayMinutes
       properties:
         date: { type: string }
         flights: { type: integer }
+        departureFlights: { type: integer }
+        arrivalFlights: { type: integer }
         delayedDepartures: { type: integer }
         cancelledFlights: { type: integer }
+        divertedFlights: { type: integer }
+        totalDepDelayMinutes: { type: integer }
+        totalArrDelayMinutes: { type: integer }
+        carrierDelayMinutes: { type: integer }
+        weatherDelayMinutes: { type: integer }
+        nasDelayMinutes: { type: integer }
+        securityDelayMinutes: { type: integer }
+        lateAircraftDelayMinutes: { type: integer }
         onTimeDeparturePct: { type: number }
         avgDepartureDelayMinutes: { type: number }
     CarrierDelay:

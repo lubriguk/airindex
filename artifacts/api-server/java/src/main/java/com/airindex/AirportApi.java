@@ -471,9 +471,19 @@ public final class AirportApi {
         if (filter == null) return;
         String sql = """
                  SELECT flight_date::text AS "date",
-                  SUM(flights) AS flights,
-                   SUM(delayed_departures) AS "delayedDepartures",
-                   SUM(cancelled_flights) AS "cancelledFlights",
+                   COALESCE(SUM(flights), 0) AS flights,
+                   COALESCE(SUM(departure_flights), 0) AS "departureFlights",
+                   COALESCE(SUM(arrival_flights), 0) AS "arrivalFlights",
+                   COALESCE(SUM(delayed_departures), 0) AS "delayedDepartures",
+                   COALESCE(SUM(cancelled_flights), 0) AS "cancelledFlights",
+                   COALESCE(SUM(diverted_flights), 0) AS "divertedFlights",
+                   COALESCE(SUM(total_dep_delay_minutes), 0) AS "totalDepDelayMinutes",
+                   COALESCE(SUM(total_arr_delay_minutes), 0) AS "totalArrDelayMinutes",
+                   COALESCE(SUM(carrier_delay_minutes), 0) AS "carrierDelayMinutes",
+                   COALESCE(SUM(weather_delay_minutes), 0) AS "weatherDelayMinutes",
+                   COALESCE(SUM(nas_delay_minutes), 0) AS "nasDelayMinutes",
+                   COALESCE(SUM(security_delay_minutes), 0) AS "securityDelayMinutes",
+                   COALESCE(SUM(late_aircraft_delay_minutes), 0) AS "lateAircraftDelayMinutes",
                    %s AS "onTimeDeparturePct",
                    %s AS "avgDepartureDelayMinutes"
                 FROM airport_delay_daily %s
@@ -487,8 +497,18 @@ public final class AirportApi {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("date", rows.getString("date"));
                 row.put("flights", integer(rows.getObject("flights")));
+                row.put("departureFlights", integer(rows.getObject("departureFlights")));
+                row.put("arrivalFlights", integer(rows.getObject("arrivalFlights")));
                 row.put("delayedDepartures", integer(rows.getObject("delayedDepartures")));
                 row.put("cancelledFlights", integer(rows.getObject("cancelledFlights")));
+                row.put("divertedFlights", integer(rows.getObject("divertedFlights")));
+                row.put("totalDepDelayMinutes", integer(rows.getObject("totalDepDelayMinutes")));
+                row.put("totalArrDelayMinutes", integer(rows.getObject("totalArrDelayMinutes")));
+                row.put("carrierDelayMinutes", integer(rows.getObject("carrierDelayMinutes")));
+                row.put("weatherDelayMinutes", integer(rows.getObject("weatherDelayMinutes")));
+                row.put("nasDelayMinutes", integer(rows.getObject("nasDelayMinutes")));
+                row.put("securityDelayMinutes", integer(rows.getObject("securityDelayMinutes")));
+                row.put("lateAircraftDelayMinutes", integer(rows.getObject("lateAircraftDelayMinutes")));
                 row.put("onTimeDeparturePct", decimal(rows.getObject("onTimeDeparturePct")));
                 row.put("avgDepartureDelayMinutes", decimal(rows.getObject("avgDepartureDelayMinutes")));
                 result.add(row);

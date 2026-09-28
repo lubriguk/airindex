@@ -30,9 +30,10 @@ const $ = (id) => document.getElementById(id);
 const apiRoot = new URL('api/', new URL(import.meta.env.BASE_URL, window.location.origin));
 const state = {
   airports: { pending: true }, status: { pending: true },
-  results: {}, requestId: 0, controller: null, metadataId: 0,
+  results: {}, resultsKey: '', requestId: 0, controller: null, metadataId: 0,
   airlineOptions: { pending: true }, airlineRequestId: 0,
-  airlines: new Set(), rules: [], nextRuleId: 1, shownMetrics: new Set(DEFAULT_METRICS),
+  airlines: new Set(), rules: [], appliedRules: [], nextRuleId: 1,
+  shownMetrics: new Set(DEFAULT_METRICS), appliedMetrics: new Set(DEFAULT_METRICS),
   compare: { pending: true }, compareRequestId: 0, compareController: null, activeView: 'detail',
   nasMeasure: 'perArrival', expandedRankings: { departure: false, nas: false },
   departureSort: 'highest', nasSort: 'highest',
@@ -44,7 +45,6 @@ const paths = {
   summary: 'delays/summary', daily: 'delays/daily', carriers: 'delays/carriers',
   causes: 'delays/causes', weekday: 'delays/weekday',
 };
-let ruleInputTimer;
 let dateInputTimer;
 
 function escapeHtml(value) {
@@ -246,7 +246,7 @@ function renderRules() {
       <button class="rule-remove" type="button" aria-label="Remove rule ${rule.id}" data-action="remove-rule" data-testid="button-remove-rule-${rule.id}">×</button>
     </div>`).join('') : '<div class="rule-empty">No record rules. All reported rows are included.</div>';
   $('add-rule').disabled = state.rules.length >= 30;
-  updateQueryChips();
+  updateDraftStatus();
 }
 
 function renderMetricChoices() {
@@ -256,13 +256,21 @@ function renderMetricChoices() {
   ];
   $('metric-options').innerHTML = choices.map(([id, label]) =>
     `<label class="metric-option"><input type="checkbox" value="${id}" ${state.shownMetrics.has(id) ? 'checked' : ''} data-testid="checkbox-show-${id}"><span>${escapeHtml(label)}</span></label>`).join('');
-  $('metric-choice-count').textContent = `${state.shownMetrics.size} of ${choices.length} cards shown`;
+  updateDraftStatus();
+}
+
+function updateDraftStatus() {
+  $('metric-choice-count').textContent = `${state.shownMetrics.size} of ${HEADLINE_METRICS.length + RAW_METRICS.length} selected`;
+  const dirty = JSON.stringify(state.rules.map(({ column, operator, value }) => ({ column, operator, value })))
+    !== JSON.stringify(state.appliedRules.map(({ column, operator, value }) => ({ column, operator, value })))
+    || [...state.shownMetrics].sort().join(',') !== [...state.appliedMetrics].sort().join(',');
+  $('apply-filters').textContent = dirty ? 'Apply filters · pending changes' : 'Apply filters';
 }
 
 function updateQueryChips() {
   const parts = [
     ...[...state.airlines].sort().map((code) => `<span class="query-chip">Airline ${escapeHtml(code)}</span>`),
-    ...state.rules.map((rule) => {
+    ...state.appliedRules.map((rule) => {
       const label = RAW_METRICS.find(([key]) => key === rule.column)?.[1] || rule.column;
       const operator = { gte: '≥', lte: '≤', eq: '=' }[rule.operator];
       return `<span class="query-chip rule-chip">${escapeHtml(label)} ${operator} ${escapeHtml(rule.value)}</span>`;
@@ -272,7 +280,7 @@ function updateQueryChips() {
   $('active-query').innerHTML = parts.join('');
   const counts = [
     state.airlines.size ? `${state.airlines.size} airline${state.airlines.size === 1 ? '' : 's'}` : '',
-    state.rules.length ? `${state.rules.length} rule${state.rules.length === 1 ? '' : 's'}` : '',
+    state.appliedRules.length ? `${state.appliedRules.length} rule${state.appliedRules.length === 1 ? '' : 's'}` : '',
   ].filter(Boolean);
   $('advanced-count').textContent = counts.length ? `/ ${counts.join(' · ')}` : '';
 }
@@ -280,9 +288,32 @@ function updateQueryChips() {
 async function request(path, params, signal) {
   const url = new URL(path, apiRoot);
   if (params) url.search = new URLSearchParams(params).toString();
-  const response = await fetch(url, { signal, headers: { Accept: 'application/json' } });
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-  return response.json();
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  if (signal?.aborted) controller.abort();
+  else signal?.addEventListener('abort', onAbort, { once: true });
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 20000);
+  try {
+    const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    // Cancellation from a superseded selection is not a timeout.
+    if (signal?.aborted) throw error;
+    if (timedOut) {
+      const timeoutError = new Error('This request took longer than 20 seconds; try again.');
+      timeoutError.name = 'TimeoutError';
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', onAbort);
+  }
 }
 
 function populateAirports() {
@@ -720,7 +751,7 @@ function filterValues() {
   if ($('from').value) params.set('from', $('from').value);
   if ($('to').value) params.set('to', $('to').value);
   [...state.airlines].sort().forEach((code) => params.append('airline', code));
-  state.rules.forEach(({ column, operator, value }) => params.append('metric', `${column}:${operator}:${value}`));
+  state.appliedRules.forEach(({ column, operator, value }) => params.append('metric', `${column}:${operator}:${value}`));
   return params;
 }
 
@@ -729,34 +760,114 @@ function validateDates() {
 }
 
 function validateRules() {
-  const invalid = state.rules.some(({ value }) => !/^(0|[1-9]\d*)$/.test(String(value)) || !Number.isSafeInteger(Number(value)));
+  const bad = (value) => !/^(0|[1-9]\d*)$/.test(String(value)) || !Number.isSafeInteger(Number(value));
+  const invalid = state.rules.some(({ value }) => bad(value));
+  $('rule-list').querySelectorAll('.rule-row').forEach((row) => {
+    const rule = state.rules.find((item) => item.id === Number(row.dataset.ruleId));
+    row.querySelector('.rule-value')?.setAttribute('aria-invalid', String(bad(rule?.value)));
+  });
   $('rule-error').textContent = invalid ? 'Each rule needs a nonnegative whole-number threshold.' : '';
   $('rule-error').hidden = !invalid;
   return !invalid;
 }
 
+function collapseAdvanced() {
+  $('advanced-toggle').setAttribute('aria-expanded', 'false');
+  $('advanced-body').hidden = true;
+  $('advanced-toggle').focus();
+}
+
+function commitDraft() {
+  if (!validateRules()) return false;
+  state.appliedRules = state.rules.map((rule) => ({ ...rule }));
+  state.appliedMetrics = new Set(state.shownMetrics);
+  $('advanced-notice').hidden = true;
+  updateDraftStatus();
+  updateQueryChips();
+  return true;
+}
+
+function showDraftError(message) {
+  $('advanced-notice').textContent = message;
+  $('advanced-notice').hidden = false;
+}
+
+function resultFailure(entry, fallback) {
+  return entry.timeout ? 'This request took longer than 20 seconds; try again.' : fallback;
+}
+
+function rawTrendCard([key, label, field], daily) {
+  const unit = key.endsWith('_minutes') ? 'minutes' : 'flights';
+  const months = new Map();
+  for (const item of daily.data ?? []) {
+    if (!/^\d{4}-\d{2}-\d{2}/.test(String(item?.date)) || !Number.isFinite(Number(item.flights)) || Number(item.flights) <= 0) continue;
+    const value = item[field];
+    if (value == null || !Number.isFinite(Number(value))) continue;
+    const month = item.date.slice(0, 7);
+    months.set(month, (months.get(month) ?? 0) + Number(value));
+  }
+  const points = [...months].sort(([a], [b]) => a.localeCompare(b));
+  const heading = `<h3>${escapeHtml(label)}</h3><span class="trend-unit">Reported ${unit} / month · independent scale</span>`;
+  const warning = daily.warning ? `<p class="trend-warning" role="alert">${daily.timeout ? 'This request took longer than 20 seconds; try again.' : 'Refresh failed.'} Showing the last retrieved results for this selection. <button type="button" data-action="retry">Try again</button></p>` : '';
+  if (daily.pending) return `<article class="raw-trend">${heading}${loading(145)}</article>`;
+  if (daily.error) return `<article class="raw-trend">${heading}${empty(resultFailure(daily, 'Monthly daily records could not be retrieved. Retry the daily view.'), true)}</article>`;
+  if (!points.length) return `<article class="raw-trend">${heading}${empty('No reported daily observations for this metric in the applied selection.')}</article>`;
+  const max = Math.max(1, ...points.map(([, value]) => value));
+  const width = 520; const left = 18; const right = 10; const top = 18; const bottom = 120;
+  const step = (width - left - right) / points.length;
+  const bars = points.map(([month, value], index) => {
+    const height = value / max * (bottom - top);
+    const x = left + index * step + step * .16;
+    return `<rect x="${x.toFixed(1)}" y="${(bottom - height).toFixed(1)}" width="${Math.max(2, step * .68).toFixed(1)}" height="${height.toFixed(1)}" fill="#248590"><title>${escapeHtml(month)}: ${number(value)} ${unit}</title></rect>`;
+  }).join('');
+  const descriptions = points.map(([month, value]) => `${month}: ${number(value)} ${unit}`).join('; ');
+  return `<article class="raw-trend" data-testid="chart-raw-${key}">${heading}${warning}
+    <svg viewBox="0 0 520 140" role="img" aria-label="${escapeHtml(label)} monthly totals: ${escapeHtml(descriptions)}">
+      <line x1="18" y1="${bottom}" x2="510" y2="${bottom}" stroke="#b8cdd0"/>
+      <text x="18" y="12" fill="#52727c" font-size="10">${number(max)} ${unit}</text>${bars}
+    </svg><div class="trend-months"><span>${escapeHtml(points[0][0])}</span><span>${points.length} observed ${points.length === 1 ? 'month' : 'months'}</span><span>${escapeHtml(points.at(-1)[0])}</span></div>
+    <p class="trend-detail">Highest monthly total: ${number(max)} ${unit}. Bars compare this measure only.</p>
+    <ul class="sr-only">${points.map(([month, value]) => `<li>${escapeHtml(month)}: ${number(value)} ${unit}</li>`).join('')}</ul></article>`;
+}
+
+function renderRawTrends(daily) {
+  const selected = RAW_METRICS.filter(([key]) => state.appliedMetrics.has(`raw-${key}`));
+  $('raw-trends').hidden = !selected.length;
+  if (selected.length) $('raw-trends-grid').innerHTML = daily.invalid
+    ? `<div class="raw-trend">${empty(daily.invalid)}</div>`
+    : selected.map((entry) => rawTrendCard(entry, daily)).join('');
+}
+
 async function loadResults() {
-  clearTimeout(ruleInputTimer);
   if (state.controller) state.controller.abort();
   const id = ++state.requestId;
   const datesValid = validateDates();
-  const rulesValid = validateRules();
-  if (!datesValid || !rulesValid) {
+  if (!datesValid) {
     state.results = {};
-    renderResults(datesValid ? 'Complete each record rule with a nonnegative whole number.' : $('date-error').textContent);
+    renderResults($('date-error').textContent);
     return;
   }
   state.controller = new AbortController();
   const params = filterValues();
+  const key = params.toString();
+  const previous = state.resultsKey === key ? state.results : {};
+  state.resultsKey = key;
   state.results = Object.fromEntries(Object.keys(paths).map((name) => [name, { pending: true }]));
   renderResults();
-  const entries = Object.entries(paths);
-  const results = await Promise.allSettled(entries.map(([, path]) => request(path, params, state.controller.signal)));
-  if (id !== state.requestId) return;
-  state.results = Object.fromEntries(entries.map(([name], index) => [
-    name, results[index].status === 'fulfilled' ? { data: results[index].value } : { error: true },
-  ]));
-  renderResults();
+  await Promise.all(Object.entries(paths).map(async ([name, path]) => {
+    try {
+      const data = await request(path, params, state.controller.signal);
+      if (id !== state.requestId) return;
+      state.results[name] = { data };
+    } catch (error) {
+      if (id !== state.requestId) return;
+      const timeout = error?.name === 'TimeoutError';
+      state.results[name] = previous[name]?.data
+        ? { data: previous[name].data, warning: true, timeout }
+        : { error: true, timeout };
+    }
+    renderResults();
+  }));
 }
 
 function renderResults(invalid = '') {
@@ -772,16 +883,17 @@ function renderResults(invalid = '') {
     : state.status.data?.importing ? 'The BTS dataset is still being imported. Figures will appear when records for this selection are available.'
       : 'No reported departing flights match these airport, date, airline, and record-rule selections. Widen the date range or remove a constraint.';
   const hasData = !!summary.data && summary.data.flights > 0;
+  const stale = (entry) => entry.warning ? `<p class="stale-notice" role="alert">${entry.timeout ? 'This request took longer than 20 seconds; try again.' : 'Refresh failed.'} Showing last retrieved results for this selection. <button type="button" data-action="retry">Try again</button></p>` : '';
 
-  $('metrics').innerHTML = invalid ? empty(message) : summary.pending ? loading(140).repeat(Math.max(1, Math.min(4, state.shownMetrics.size)))
-    : summary.error ? empty('The airport snapshot could not be retrieved. Check the connection and retry.', true)
-      : !state.shownMetrics.size ? '<div class="state-box" role="status" data-testid="status-summary-no-metrics"><span class="state-icon" aria-hidden="true">◌</span><strong>No summary cards selected</strong><p>Open Advanced controls → Show metrics to choose what appears here. The data below is unchanged.</p></div>'
-        : !hasData ? empty(message) : [
-          ...HEADLINE_METRICS.filter(([id]) => state.shownMetrics.has(id)).map(([id, label, key, suffix, note]) =>
+  $('metrics').innerHTML = invalid ? empty(message) : summary.pending ? loading(140).repeat(Math.max(1, Math.min(4, state.appliedMetrics.size)))
+    : summary.error ? empty(resultFailure(summary, 'The airport snapshot could not be retrieved. Check the connection and retry.'), true)
+      : !state.appliedMetrics.size ? '<div class="state-box" role="status" data-testid="status-summary-no-metrics"><span class="state-icon" aria-hidden="true">◌</span><strong>No summary cards selected</strong><p>Open Advanced controls → Show metrics to choose what appears here. The data below is unchanged.</p></div>'
+        : !hasData ? empty(message) : `${stale(summary)}${[
+          ...HEADLINE_METRICS.filter(([id]) => state.appliedMetrics.has(id)).map(([id, label, key, suffix, note]) =>
             metric(label, `${id === 'scheduled' ? number(summary.data[key]) : one(summary.data[key])}${summary.data[key] == null ? '' : suffix}`, note)),
-          ...RAW_METRICS.filter(([key]) => state.shownMetrics.has(`raw-${key}`)).map(([, label, key]) =>
+          ...RAW_METRICS.filter(([key]) => state.appliedMetrics.has(`raw-${key}`)).map(([, label, key]) =>
             metric(label, number(summary.data[key]), 'Raw BTS aggregate · selected records')),
-        ].join('');
+        ].join('')}`;
 
   const dailyData = (daily.data ?? []).filter((item) => item.flights > 0).sort((a, b) => a.date.localeCompare(b.date));
   const weekdayData = (weekday.data ?? []).filter((item) => item.flights > 0)
@@ -793,28 +905,29 @@ function renderResults(invalid = '') {
 
   disposeChart($('daily-chart'));
   $('daily-panel').innerHTML = invalid ? empty(message) : daily.pending ? loading() : daily.error
-    ? empty('Daily records could not be retrieved.', true) : !hasData || !dailyData.length ? empty(message)
-      : `${legend(true)}<div class="chart-frame" id="daily-chart"></div><p class="chart-note">Each point represents a day with reported departures. Gaps in source coverage are not interpolated.</p>`;
-  if (!invalid && hasData && dailyData.length && !daily.error) renderDailyChart($('daily-chart'), dailyData);
+    ? empty(resultFailure(daily, 'Daily records could not be retrieved.'), true) : !dailyData.length ? empty(message)
+      : `${stale(daily)}${legend(true)}<div class="chart-frame" id="daily-chart"></div><p class="chart-note">Each point represents a day with reported departures. Gaps in source coverage are not interpolated.</p>`;
+  if (!invalid && dailyData.length && !daily.error && !daily.pending) renderDailyChart($('daily-chart'), dailyData);
 
   disposeChart($('weekday-chart'));
   $('weekday-panel').innerHTML = invalid ? empty(message) : weekday.pending ? loading() : weekday.error
-    ? empty('Weekday records could not be retrieved.', true) : !hasData || !weekdayData.length ? empty(message)
-      : `${legend()}<div class="chart-frame" id="weekday-chart"></div><p class="chart-note">Aggregated by departure day, not arrival day. Hover to inspect rates.</p>`;
-  if (!invalid && hasData && weekdayData.length && !weekday.error) renderWeekdayChart($('weekday-chart'), weekdayData);
+    ? empty(resultFailure(weekday, 'Weekday records could not be retrieved.'), true) : !weekdayData.length ? empty(message)
+      : `${stale(weekday)}${legend()}<div class="chart-frame" id="weekday-chart"></div><p class="chart-note">Aggregated by departure day, not arrival day. Hover to inspect rates.</p>`;
+  if (!invalid && weekdayData.length && !weekday.error && !weekday.pending) renderWeekdayChart($('weekday-chart'), weekdayData);
 
   $('carrier-panel').innerHTML = invalid ? empty(message) : carriers.pending ? loading(250) : carriers.error
-    ? empty('Carrier records could not be retrieved.', true) : !hasData || !carrierData.length ? empty(message)
-      : `<div class="table-scroll"><table class="data-table"><thead><tr><th>Carrier</th><th>Flights</th><th>On-time departure</th><th>Avg delay</th></tr></thead><tbody>${carrierData.map((item) =>
+    ? empty(resultFailure(carriers, 'Carrier records could not be retrieved.'), true) : !carrierData.length ? empty(message)
+      : `${stale(carriers)}<div class="table-scroll"><table class="data-table"><thead><tr><th>Carrier</th><th>Flights</th><th>On-time departure</th><th>Avg delay</th></tr></thead><tbody>${carrierData.map((item) =>
         `<tr data-testid="row-carrier-${escapeHtml(item.code)}"><td><span class="code-pill">${escapeHtml(item.code)}</span></td><td>${number(item.flights)}</td><td class="on-time-cell"><div class="table-bar"><span>${one(item.onTimeDeparturePct)}%</span><div class="bar-track"><div class="bar-fill" style="width:${Math.max(0, Math.min(100, item.onTimeDeparturePct))}%"></div></div></div></td><td>${one(item.avgDepartureDelayMinutes)} min</td></tr>`,
       ).join('')}</tbody></table><p class="chart-note">Sorted by departure volume. Carrier codes are BTS reporting-carrier codes.</p></div>`;
 
   const totalCauseMinutes = causeData.reduce((sum, item) => sum + item.minutes, 0);
   $('arrival-panel').innerHTML = invalid ? empty(message) : summary.pending || causes.pending ? loading(250)
-    : summary.error || causes.error ? empty('Arrival outcomes could not be retrieved.', true)
-      : !hasData ? empty(message) : `<div class="mini-kpis"><div><strong data-testid="text-arrival-flights">${number(summary.data.arrivalFlights)}</strong><span>Arrival records</span></div><div><strong data-testid="text-arrival-delay">${one(summary.data.avgArrivalDelayMinutes)}</strong><span>Avg arrival delay, min</span></div><div><strong data-testid="text-diversions">${number(summary.data.divertedFlights)}</strong><span>Diverted flights</span></div></div><div class="panel-kicker cause-heading">BTS-reported arrival delay causes / minutes</div>${causeData.length ? causeData.map((item) =>
+    : summary.error || causes.error ? empty(resultFailure(summary.timeout ? summary : causes, 'Arrival outcomes could not be retrieved.'), true)
+      : !hasData ? empty(message) : `${stale(summary)}${stale(causes)}<div class="mini-kpis"><div><strong data-testid="text-arrival-flights">${number(summary.data.arrivalFlights)}</strong><span>Arrival records</span></div><div><strong data-testid="text-arrival-delay">${one(summary.data.avgArrivalDelayMinutes)}</strong><span>Avg arrival delay, min</span></div><div><strong data-testid="text-diversions">${number(summary.data.divertedFlights)}</strong><span>Diverted flights</span></div></div><div class="panel-kicker cause-heading">BTS-reported arrival delay causes / minutes</div>${causeData.length ? causeData.map((item) =>
         `<div class="cause-row" data-testid="row-cause-${escapeHtml(item.cause.replace(/\W+/g, '-'))}"><div class="cause-line"><span>${escapeHtml(item.cause)}</span><strong>${number(item.minutes)} min</strong></div><div class="cause-track"><div class="cause-fill" style="width:${totalCauseMinutes ? item.minutes / totalCauseMinutes * 100 : 0}%"></div></div></div>`,
       ).join('') : empty('No arrival-delay cause minutes were reported for this selection.')}<p class="chart-note">Cause minutes are reported at the destination for these departing flights; they are not causes of departure delay. Categories may not sum to total arrival delay.</p>`;
+  renderRawTrends(invalid ? { invalid } : daily);
 }
 
 populateAirports();
@@ -846,7 +959,7 @@ document.addEventListener('click', (event) => {
     const id = Number(event.target.closest('[data-rule-id]')?.dataset.ruleId);
     state.rules = state.rules.filter((rule) => rule.id !== id);
     renderRules();
-    loadResults();
+    validateRules();
   }
   if (!event.target.closest('.airline-picker')) {
     $('airline-menu').hidden = true;
@@ -893,6 +1006,13 @@ document.addEventListener('keydown', (event) => {
   }
 });
 $('airport').addEventListener('change', () => {
+  if ($('advanced-toggle').getAttribute('aria-expanded') === 'true') {
+    if (commitDraft()) collapseAdvanced();
+    else {
+      showDraftError('The new airport is loading with your last applied filters. Correct the rule threshold, then select Apply filters to use your draft.');
+      $('advanced-notice').focus();
+    }
+  }
   state.airlines.clear();
   $('airline-menu').hidden = true;
   $('airline-trigger').setAttribute('aria-expanded', 'false');
@@ -944,10 +1064,18 @@ $('advanced-toggle').addEventListener('click', () => {
   $('advanced-toggle').setAttribute('aria-expanded', String(expanded));
   $('advanced-body').hidden = !expanded;
 });
+$('apply-filters').addEventListener('click', () => {
+  if (!commitDraft()) {
+    showDraftError('Nothing was applied. Enter a nonnegative whole-number threshold for every rule, then try again.');
+    $('rule-list').querySelector('.rule-value[aria-invalid="true"]')?.focus();
+    return;
+  }
+  collapseAdvanced();
+  loadResults();
+});
 $('add-rule').addEventListener('click', () => {
   state.rules.push({ id: state.nextRuleId++, column: 'flights', operator: 'gte', value: '0' });
   renderRules();
-  loadResults();
   $('rule-list').lastElementChild?.querySelector('.rule-column')?.focus();
 });
 $('rule-list').addEventListener('change', (event) => {
@@ -958,35 +1086,25 @@ $('rule-list').addEventListener('change', (event) => {
   rule.column = row.querySelector('.rule-column').value;
   rule.operator = row.querySelector('.rule-operator').value;
   rule.value = row.querySelector('.rule-value').value;
-  updateQueryChips();
-  loadResults();
+  validateRules();
+  updateDraftStatus();
 });
 $('rule-list').addEventListener('input', (event) => {
   if (!event.target.matches('.rule-value')) return;
   const rule = state.rules.find((item) => item.id === Number(event.target.closest('[data-rule-id]').dataset.ruleId));
   if (rule) rule.value = event.target.value;
-  if (state.controller) state.controller.abort();
-  state.requestId++;
-  const valid = validateRules();
-  updateQueryChips();
-  state.results = valid
-    ? Object.fromEntries(Object.keys(paths).map((name) => [name, { pending: true }]))
-    : {};
-  renderResults(valid ? '' : 'Complete each record rule with a nonnegative whole number.');
-  clearTimeout(ruleInputTimer);
-  if (valid) ruleInputTimer = setTimeout(loadResults, 350);
+  validateRules();
+  updateDraftStatus();
 });
 $('metric-options').addEventListener('change', (event) => {
   if (event.target.type !== 'checkbox') return;
   if (event.target.checked) state.shownMetrics.add(event.target.value);
   else state.shownMetrics.delete(event.target.value);
-  $('metric-choice-count').textContent = `${state.shownMetrics.size} of ${HEADLINE_METRICS.length + RAW_METRICS.length} cards shown`;
-  renderResults();
+  updateDraftStatus();
 });
 $('reset-metrics').addEventListener('click', () => {
   state.shownMetrics = new Set(DEFAULT_METRICS);
   renderMetricChoices();
-  renderResults();
 });
 $('reset-dates').addEventListener('click', () => {
   $('from').value = '';
