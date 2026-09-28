@@ -102,7 +102,7 @@
           <div class="compare-intro fade-in">
             <div class="eyebrow">Research desk / Cross-airport comparison</div>
             <h1 class="page-title" id="compare-title">Compare hubs.</h1>
-            <p class="page-desc">Two ways to read reliability across hubs and major bases: late departures, and NAS-attributed arrival-delay minutes for flights that began there.</p>
+            <p class="page-desc">Compare all-carrier departures and NAS attribution across hubs, then look at one airline’s own flights at its hubs and major bases.</p>
           </div>
           <div class="filter-panel compare-filter" role="group" aria-label="Comparison date range">
             <label class="field"><span class="field-label">From</span><input class="control" id="compare-from" type="date" data-testid="input-compare-from" /></label>
@@ -120,8 +120,8 @@
             <div class="coverage-cell"><div class="coverage-label">Source &amp; scope</div><strong class="coverage-source"><a href="https://www.transtats.bts.gov/Fields.asp?gnoyr_VQ=FGJ" target="_blank" rel="noopener noreferrer">Official BTS fields <svg class="icon icon-inline" aria-hidden="true"><use href="#icon-link"></use></svg></a></strong><span class="coverage-months" id="compare-months">Coverage pending</span></div>
           </section>
           <div id="compare-notices" aria-live="polite"></div>
-          <p class="compare-scope">Hubs and major bases · All reporting airlines · Origin departures · GUM excluded (not covered)</p>
-          <nav class="compare-index" aria-label="Jump to a comparison chart"><button type="button" data-jump="departure-ranking" data-testid="button-jump-departure"><span>01 /</span> Departure delay</button><button type="button" data-jump="nas-ranking" data-testid="button-jump-nas"><span>02 /</span> NAS arrival attribution</button></nav>
+          <p class="compare-scope">Airport rankings: all reporting airlines · Hubs and major bases · Origin departures · GUM excluded (not covered)</p>
+          <nav class="compare-index" aria-label="Jump to a comparison chart"><button type="button" data-jump="departure-ranking" data-testid="button-jump-departure"><span>01 /</span> Departure delay</button><button type="button" data-jump="nas-ranking" data-testid="button-jump-nas"><span>02 /</span> NAS arrival attribution</button><button type="button" data-jump="airline-hubs" data-testid="button-jump-airline-hubs"><span>03 /</span> Airline at its hubs</button></nav>
           <div class="compare-grid">
           <section class="compare-panel" id="departure-ranking" aria-labelledby="ranking-title">
             <div class="compare-panel-head">
@@ -145,6 +145,24 @@
             <div id="nas-results" aria-live="polite" aria-atomic="false"></div>
           </section>
           </div>
+          <section class="airline-hubs-panel" id="airline-hubs" aria-labelledby="airline-hubs-title">
+            <div class="airline-hubs-head">
+              <div><div class="panel-kicker">03 / Carrier lens · a separate comparison</div><h2 class="panel-title" id="airline-hubs-title" tabindex="-1">One airline. Its hubs.</h2></div>
+              <span class="airline-hubs-tag">Reporting_Airline / origin departures</span>
+            </div>
+            <div class="airline-hubs-intro">
+              <p>Choose a reporting airline to compare <strong>only its own BTS origin-departure flights</strong> across a curated shortlist of its hubs and major bases. This is not the all-carrier airport ranking above, and a late departure does not establish airline or airport responsibility.</p>
+              <p>Carrier codes are read as reported: Alaska <strong>AS</strong> and Hawaiian <strong>HA</strong> remain separate. Shortlists are supplied by the dataset; Spirit is not listed as a current FLL hub.</p>
+            </div>
+            <div class="airline-hubs-controls">
+              <label class="field" for="hub-airline"><span class="field-label">Reporting airline</span><select id="hub-airline" class="control" data-testid="select-hub-airline" disabled><option>Loading airlines…</option></select></label>
+              <label class="field" for="hub-sort"><span class="field-label">Order these hubs</span><select id="hub-sort" class="control" data-testid="select-hub-sort"><option value="highest">Highest delayed share</option><option value="lowest">Lowest delayed share</option><option value="airport">Airport A–Z</option></select></label>
+              <span class="airline-hubs-range" id="airline-hubs-period">Uses the comparison date range above</span>
+            </div>
+            <div id="airline-hubs-summary" class="airline-hubs-summary" aria-live="polite"></div>
+            <div id="airline-hubs-results" aria-live="polite" aria-atomic="false"></div>
+            <div class="airline-hubs-foot">Delayed share = delayed departures (15 minutes or more) ÷ reported departure flights. N/A means no reported departure-flight denominator or no reported rate. Counts are shown even when the rate is unavailable. Bars use a fixed 0–100% scale; sorting uses the underlying counts, never rounded display percentages.</div>
+          </section>
           <footer class="footer"><p><strong>Reading the rankings.</strong> Delayed departures are flights leaving 15 minutes or more after schedule, divided by reported departure flights. NAS is one of five BTS-attributed <em>arrival</em>-delay causes for flights originating at each airport. Per-arrival uses flights with reported arrival times; share uses the sum of all five attributed cause-minute fields. N/A means no denominator was reported. Attribution does not establish where or why an airport was responsible.</p><p>Source: <a href="https://www.transtats.bts.gov/ONTIME/" target="_blank" rel="noopener noreferrer">Bureau of Transportation Statistics</a><br />Reporting Carrier On-Time Performance</p></footer>
         </section>
       </main>

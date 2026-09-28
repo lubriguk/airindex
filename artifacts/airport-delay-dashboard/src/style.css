@@ -272,3 +272,35 @@ button:disabled { cursor:not-allowed; }
 @media(max-width:1150px) { .compare-grid { grid-template-columns:1fr; }.compare-grid .compare-panel-head { min-height:0; }.compare-deck { min-height:0; } }
 @media(max-width:540px) { .compare-sort { padding:10px 12px; font-size:9px; }.compare-sort .control { flex-basis:170px; font-size:11px; } }
 @media(max-width:540px) { .compare-index button { flex:1; justify-content:center; font-size:9px; }.compare-grid { gap:16px; }.compare-grid .compare-key,.compare-grid .hub-row { grid-template-columns:23px 63px minmax(40px,1fr) 55px; gap:5px; padding-left:11px; padding-right:11px; }.compare-grid .hub-place { display:none; }.compare-grid .hub-percent { font-size:13px; }.compare-grid .compare-key { font-size:7px; }.compare-grid .compare-panel-head { padding:20px 16px 15px; }.compare-deck { padding:13px 16px; }.nas-switch { margin:15px 11px 10px; }.nas-switch label { font-size:9px; }.nas-metric-description { margin:0 14px 14px; }.nas-key,.nas-summary { grid-template-columns:23px 55px minmax(30px,1fr) 69px; gap:5px; padding-left:11px; padding-right:11px; }.nas-key { font-size:7px; }.nas-identity .hub-code { font-size:16px; }.nas-value { font-size:12px; }.nas-detail { padding:3px 12px 17px 94px; }.nas-values div { display:block; }.nas-values dd { text-align:left; margin-top:3px; } }
+
+/* Carrier lens: a distinct reading chapter, never visually merged into airport-wide rankings. */
+.airline-hubs-panel { scroll-margin-top:20px; margin-top:36px; background:#f8faf9; border:1px solid #bcd1d2; border-top:4px solid #236e78; }
+.airline-hubs-head { display:flex; justify-content:space-between; align-items:end; gap:20px; padding:29px 32px 23px; background:#e1eded; border-bottom:1px solid #c4d9d9; }
+.airline-hubs-head .panel-title { font-size:clamp(26px,3vw,38px); margin-top:7px; }
+.airline-hubs-tag { font:700 10px 'Space Mono',monospace; text-transform:uppercase; letter-spacing:.06em; color:#32717b; white-space:nowrap; }
+.airline-hubs-intro { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(230px,.75fr); gap:32px; padding:22px 32px 23px; color:#526e77; font-size:13px; line-height:1.65; }
+.airline-hubs-intro p { margin:0; }
+.airline-hubs-intro p + p { border-left:1px solid #c9dadb; padding-left:27px; color:#647f86; font-size:11px; }
+.airline-hubs-intro strong { color:#1d4c58; }
+.airline-hubs-controls { display:flex; align-items:end; gap:15px; flex-wrap:wrap; padding:18px 32px; background:#eaf2f1; border-top:1px solid #d5e3e2; border-bottom:1px solid #c9dadb; }
+.airline-hubs-controls .field { flex:0 1 310px; min-width:180px; }
+.airline-hubs-controls .field:nth-child(2) { flex-basis:245px; }
+.airline-hubs-range { margin-left:auto; padding-bottom:12px; color:#5b7b83; font:10px 'Space Mono',monospace; }
+.airline-hubs-summary { padding:14px 32px; color:#235560; font:700 11px 'Space Mono',monospace; letter-spacing:.045em; text-transform:uppercase; border-bottom:1px solid #d9e4e4; }
+.airline-hubs-key,.airline-hubs-row { display:grid; grid-template-columns:minmax(175px,1.5fr) minmax(110px,1fr) 85px minmax(150px,.9fr) minmax(100px,.7fr); gap:16px; align-items:center; padding-left:32px; padding-right:32px; }
+.airline-hubs-key { min-height:43px; color:#718b91; font:700 9px 'Space Mono',monospace; letter-spacing:.08em; text-transform:uppercase; background:#f3f7f6; }
+.airline-hubs-key span:nth-child(n+3) { text-align:right; }
+.airline-hubs-list { list-style:none; margin:0; padding:0; }
+.airline-hubs-row { min-height:81px; padding-top:13px; padding-bottom:13px; border-top:1px solid #e1eae9; font-variant-numeric:tabular-nums; transition:background .18s; }
+.airline-hubs-row:hover { background:#edf5f3; }
+.airline-hubs-place { min-width:0; display:flex; align-items:baseline; gap:12px; }
+.airline-hubs-place > span { min-width:0; color:#69828a; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.airline-hubs-track { display:block; height:13px; border-left:1px solid #c7d9d9; background:repeating-linear-gradient(90deg,#e7efed,#e7efed calc(25% - 1px),#cfdedb calc(25% - 1px),#cfdedb 25%); }
+.airline-hubs-track > span { display:block; height:100%; background:#2a8790; }
+.airline-hubs-rate { text-align:right; color:#184753; font:700 19px 'Space Grotesk',sans-serif; white-space:nowrap; }
+.airline-hubs-rate.is-na { color:#778d92; }
+.airline-hubs-count,.airline-hubs-total { text-align:right; color:#244f5a; font:700 12px 'Space Mono',monospace; white-space:nowrap; }
+.airline-hubs-count small,.airline-hubs-total small { display:block; margin-top:5px; color:#788e94; font:10px 'DM Sans',sans-serif; }
+.airline-hubs-foot { padding:18px 32px 22px; color:#627e86; border-top:1px solid #d5e1e2; font-size:11px; line-height:1.6; }
+@media(max-width:850px) { .airline-hubs-head { padding:24px 20px; }.airline-hubs-intro { padding:20px; gap:20px; }.airline-hubs-controls { padding:18px 20px; }.airline-hubs-summary,.airline-hubs-foot { padding-left:20px; padding-right:20px; }.airline-hubs-key,.airline-hubs-row { padding-left:20px; padding-right:20px; gap:10px; grid-template-columns:minmax(115px,1.4fr) minmax(75px,1fr) 67px minmax(115px,1fr); }.airline-hubs-key span:last-child { display:none; }.airline-hubs-total { grid-column:4; font-size:10px; margin-top:-13px; }.airline-hubs-total small { display:none; }.airline-hubs-count { align-self:start; }.airline-hubs-row { min-height:91px; } }
+@media(max-width:620px) { .airline-hubs-panel { margin-top:27px; }.airline-hubs-head { display:block; padding:21px 16px; }.airline-hubs-tag { display:block; margin-top:14px; font-size:9px; white-space:normal; }.airline-hubs-intro { display:block; padding:18px 16px; }.airline-hubs-intro p + p { margin-top:13px; padding:12px 0 0; border-left:0; border-top:1px solid #c9dadb; }.airline-hubs-controls { padding:16px; gap:12px; }.airline-hubs-controls .field,.airline-hubs-controls .field:nth-child(2) { flex:1 1 100%; min-width:0; }.airline-hubs-range { margin:0; padding:3px 0 0; }.airline-hubs-summary { padding:13px 16px; font-size:9px; line-height:1.6; }.airline-hubs-key { display:none; }.airline-hubs-row { grid-template-columns:minmax(0,1fr) auto; gap:10px 14px; padding:17px 16px; }.airline-hubs-place { grid-column:1; display:block; }.airline-hubs-place > span { display:block; margin-top:3px; }.airline-hubs-rate { grid-column:2; grid-row:1; }.airline-hubs-track { grid-column:1/-1; grid-row:2; }.airline-hubs-count { grid-column:1; grid-row:3; text-align:left; margin:0; }.airline-hubs-total { grid-column:2; grid-row:3; margin:0; font-size:11px; align-self:start; }.airline-hubs-total small { display:block; }.airline-hubs-foot { padding:16px; }.airline-hubs-panel .compare-status { padding:16px; } }

@@ -26,6 +26,8 @@ public final class AirportApi {
     private static final String BTS_SOURCE_URL = "https://www.transtats.bts.gov/ONTIME/";
     private static final String INVALID_FILTER =
             "Choose a supported airport, valid dates, airline codes, and metric rules.";
+    private static final String INVALID_AIRLINE_HUB_FILTER =
+            "Choose a supported airline and valid dates (YYYY-MM-DD).";
     private static final String WHERE = """
             WHERE airport = ?
                AND (?::date IS NULL OR flight_date >= ?::date)
@@ -57,6 +59,15 @@ public final class AirportApi {
             "JetBlue", List.of("JFK", "BOS", "FLL", "MCO", "SJU"),
             "Frontier", List.of("DEN", "LAS", "MCO"),
             "Allegiant", List.of("LAS"));
+    private static final List<AirlineOption> HUB_AIRLINES = List.of(
+            new AirlineOption("UA", "United", List.of("ORD", "DEN", "IAH", "EWR", "SFO", "IAD", "LAX")),
+            new AirlineOption("AS", "Alaska", List.of("SEA", "PDX", "ANC", "LAX")),
+            new AirlineOption("HA", "Hawaiian", List.of("HNL")),
+            new AirlineOption("WN", "Southwest",
+                    List.of("DAL", "HOU", "MDW", "BWI", "LAS", "DEN", "PHX", "MCO", "ATL")),
+            new AirlineOption("B6", "JetBlue", List.of("JFK", "BOS", "FLL", "MCO", "SJU")),
+            new AirlineOption("F9", "Frontier", List.of("DEN", "LAS", "MCO")),
+            new AirlineOption("G4", "Allegiant", List.of("LAS")));
     private static final List<String> COMPARISON_AIRPORTS =
             COMPARISON_AIRPORTS_BY_AIRLINE.values().stream()
                     .flatMap(List::stream).distinct().sorted().toList();
@@ -114,6 +125,8 @@ public final class AirportApi {
         register(server, "/api/airports", this::airports);
         register(server, "/api/data-status", this::dataStatus);
         register(server, "/api/delays/hub-ranking", this::hubRanking);
+        register(server, "/api/delays/hub-airlines", this::hubAirlines);
+        register(server, "/api/delays/airline-hubs", this::airlineHubs);
         register(server, "/api/delays/summary", this::summary);
         register(server, "/api/delays/daily", this::daily);
         register(server, "/api/delays/carriers", this::carriers);
@@ -264,6 +277,126 @@ public final class AirportApi {
             }
         }
         sendJson(exchange, 200, result);
+    }
+
+    private void hubAirlines(HttpExchange exchange) throws IOException {
+        Map<String, List<String>> query;
+        try {
+            query = parseQuery(exchange.getRequestURI().getRawQuery());
+        } catch (IllegalArgumentException exception) {
+            sendJson(exchange, 400, Map.of("error", "This endpoint does not accept query parameters."));
+            return;
+        }
+        if (!query.isEmpty()) {
+            sendJson(exchange, 400, Map.of("error", "This endpoint does not accept query parameters."));
+            return;
+        }
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (AirlineOption airline : HUB_AIRLINES) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("code", airline.code);
+            row.put("name", airline.name);
+            row.put("airports", airline.airports);
+            result.add(row);
+        }
+        sendJson(exchange, 200, result);
+    }
+
+    private void airlineHubs(HttpExchange exchange) throws Exception {
+        Map<String, List<String>> query;
+        try {
+            query = parseQuery(exchange.getRequestURI().getRawQuery());
+        } catch (IllegalArgumentException exception) {
+            sendJson(exchange, 400, Map.of("error", INVALID_AIRLINE_HUB_FILTER));
+            return;
+        }
+        String code = single(query, "airline");
+        String from = single(query, "from");
+        String to = single(query, "to");
+        AirlineOption airline = HUB_AIRLINES.stream()
+                .filter(option -> option.code.equals(code)).findFirst().orElse(null);
+        boolean valid = Set.of("airline", "from", "to").containsAll(query.keySet())
+                && query.containsKey("airline") && query.get("airline").size() == 1
+                && (!query.containsKey("from") || query.get("from").size() == 1)
+                && (!query.containsKey("to") || query.get("to").size() == 1)
+                && airline != null
+                && (from == null || validDate(from))
+                && (to == null || validDate(to))
+                && (from == null || to == null || !LocalDate.parse(from).isAfter(LocalDate.parse(to)));
+        if (!valid) {
+            sendJson(exchange, 400, Map.of("error", INVALID_AIRLINE_HUB_FILTER));
+            return;
+        }
+
+        String airportPlaceholders = String.join(", ",
+                airline.airports.stream().map(ignored -> "?").toList());
+        String sql = """
+                SELECT airport, SUM(flights) AS flights,
+                  SUM(departure_flights) AS "departureFlights",
+                  SUM(delayed_departures) AS "delayedDepartures",
+                  ROUND(100.0 * SUM(delayed_departures)
+                    / NULLIF(SUM(departure_flights), 0), 1) AS "delayedDeparturePct"
+                FROM airport_delay_daily
+                WHERE airline = ?
+                  AND airport IN (%s)
+                  AND (?::date IS NULL OR flight_date >= ?::date)
+                  AND (?::date IS NULL OR flight_date <= ?::date)
+                GROUP BY airport
+                """.formatted(airportPlaceholders);
+        Map<String, HubAggregate> aggregates = new LinkedHashMap<>();
+        for (String airport : airline.airports) {
+            aggregates.put(airport, new HubAggregate(airport, 0, 0, 0, null));
+        }
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            int index = 1;
+            statement.setString(index++, airline.code);
+            for (String airport : airline.airports) statement.setString(index++, airport);
+            setNullableString(statement, index++, from);
+            setNullableString(statement, index++, from);
+            setNullableString(statement, index++, to);
+            setNullableString(statement, index, to);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    String airport = rows.getString("airport");
+                    aggregates.put(airport, new HubAggregate(
+                            airport,
+                            integer(rows.getObject("flights")),
+                            integer(rows.getObject("departureFlights")),
+                            integer(rows.getObject("delayedDepartures")),
+                            nullableDecimal(rows.getObject("delayedDeparturePct"))));
+                }
+            }
+        }
+        List<HubAggregate> sorted = new ArrayList<>(aggregates.values());
+        sorted.sort((left, right) -> {
+            boolean leftMissing = left.departureFlights == 0;
+            boolean rightMissing = right.departureFlights == 0;
+            if (leftMissing != rightMissing) return leftMissing ? 1 : -1;
+            if (!leftMissing) {
+                BigDecimal leftRatio = BigDecimal.valueOf(left.delayedDepartures)
+                        .multiply(BigDecimal.valueOf(right.departureFlights));
+                BigDecimal rightRatio = BigDecimal.valueOf(right.delayedDepartures)
+                        .multiply(BigDecimal.valueOf(left.departureFlights));
+                int ratioOrder = rightRatio.compareTo(leftRatio);
+                if (ratioOrder != 0) return ratioOrder;
+            }
+            return left.airport.compareTo(right.airport);
+        });
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (HubAggregate aggregate : sorted) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("airport", aggregate.airport);
+            row.put("flights", aggregate.flights);
+            row.put("departureFlights", aggregate.departureFlights);
+            row.put("delayedDepartures", aggregate.delayedDepartures);
+            row.put("delayedDeparturePct", aggregate.delayedDeparturePct);
+            result.add(row);
+        }
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("airline", Map.of("code", airline.code, "name", airline.name));
+        response.put("airports", result);
+        sendJson(exchange, 200, response);
     }
 
     private void summary(HttpExchange exchange) throws Exception {
@@ -630,6 +763,11 @@ public final class AirportApi {
     }
 
     private record MetricRule(String column, String operator, long threshold) {}
+
+    private record AirlineOption(String code, String name, List<String> airports) {}
+
+    private record HubAggregate(String airport, long flights, long departureFlights,
+                                long delayedDepartures, BigDecimal delayedDeparturePct) {}
 
     private record DateRange(String from, String to) {}
 }

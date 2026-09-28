@@ -86,6 +86,59 @@ paths:
                   $ref: "#/components/schemas/HubDelayRank"
         "400":
           description: Invalid date range
+  /delays/hub-airlines:
+    get:
+      operationId: listHubAirlines
+      tags: [airports]
+      summary: List supported reporting airlines and their configured hubs and bases
+      description: >-
+        Returns the user-supplied hub/base shortlist for each supported raw BTS
+        Reporting_Airline code. Alaska (AS) and Hawaiian (HA) are listed
+        separately. The airport lists are not a claim of an official or
+        exhaustive carrier hub inventory; GUM is excluded because it is outside
+        the BTS airport coverage used by this dashboard. Query parameters are
+        not accepted.
+      responses:
+        "200":
+          description: Reporting-airline options and configured airport codes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HubAirlineOption"
+        "400":
+          description: Query parameters are not accepted
+  /delays/airline-hubs:
+    get:
+      operationId: getAirlineHubRanking
+      tags: [airports]
+      summary: Rank one reporting airline's departures at its configured hubs and bases
+      description: >-
+        Uses the raw BTS Reporting_Airline code and the user-supplied
+        hub/base shortlist returned by /delays/hub-airlines. It is not an
+        all-carrier airport ranking and does not attribute responsibility to
+        an airline or airport. Alaska (AS) and Hawaiian (HA) are distinct
+        reporting-airline selections. GUM is excluded because it is outside the
+        BTS airport coverage used by this dashboard. Returns one row for every
+        configured airport, including airports with no reported departures in
+        the selected period; their delayedDeparturePct is null and should be
+        displayed as N/A, not zero. Rows are ordered by the unrounded delayed
+        departures / departure flights ratio descending, with airports lacking
+        a denominator last and airport code as the tie-breaker.
+      parameters:
+        - $ref: "#/components/parameters/HubAirline"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses:
+        "200":
+          description: Selected reporting airline's hub and base departure metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AirlineHubRanking"
+        "400":
+          description: Invalid reporting-airline code or date range
   /delays/summary:
     get:
       operationId: getDelaySummary
@@ -207,6 +260,14 @@ components:
       schema:
         type: string
         pattern: '^\d{4}-\d{2}-\d{2}$'
+    HubAirline:
+      in: query
+      name: airline
+      required: true
+      description: Raw BTS Reporting_Airline code from the supported hub-airline shortlist.
+      schema:
+        type: string
+        enum: [UA, AS, HA, WN, B6, F9, G4]
     Airline:
       in: query
       name: airline
@@ -277,6 +338,46 @@ components:
         attributedDelayMinutes: { type: integer, description: Sum of five BTS attributed arrival-delay cause minute fields }
         nasMinutesPerArrival: { type: ["number", "null"], description: NAS minutes divided by arrivalFlights }
         nasAttributedSharePct: { type: ["number", "null"], description: NAS minutes as a percentage of attributedDelayMinutes }
+    HubAirlineOption:
+      type: object
+      required: [code, name, airports]
+      properties:
+        code:
+          type: string
+          enum: [UA, AS, HA, WN, B6, F9, G4]
+          description: Raw BTS Reporting_Airline code
+        name: { type: string }
+        airports:
+          type: array
+          description: User-supplied hub/base shortlist; not an exhaustive official inventory
+          items: { type: string }
+    AirlineHubRanking:
+      type: object
+      required: [airline, airports]
+      properties:
+        airline:
+          type: object
+          required: [code, name]
+          properties:
+            code:
+              type: string
+              enum: [UA, AS, HA, WN, B6, F9, G4]
+            name: { type: string }
+        airports:
+          type: array
+          items:
+            $ref: "#/components/schemas/AirlineHubRow"
+    AirlineHubRow:
+      type: object
+      required: [airport, flights, departureFlights, delayedDepartures, delayedDeparturePct]
+      properties:
+        airport: { type: string }
+        flights: { type: integer }
+        departureFlights: { type: integer }
+        delayedDepartures: { type: integer }
+        delayedDeparturePct:
+          type: ["number", "null"]
+          description: Delayed departures divided by departure flights; null when the denominator is zero (display as N/A)
     DelaySummary:
       type: object
       required: [airport, from, to, flights, departureFlights, arrivalFlights, delayedDepartures, cancelledFlights, divertedFlights, totalDepDelayMinutes, totalArrDelayMinutes, carrierDelayMinutes, weatherDelayMinutes, nasDelayMinutes, securityDelayMinutes, lateAircraftDelayMinutes, onTimeDeparturePct, cancellationPct, avgDepartureDelayMinutes, avgArrivalDelayMinutes]

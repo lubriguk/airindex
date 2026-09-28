@@ -36,6 +36,8 @@ const state = {
   compare: { pending: true }, compareRequestId: 0, compareController: null, activeView: 'detail',
   nasMeasure: 'perArrival', expandedRankings: { departure: false, nas: false },
   departureSort: 'highest', nasSort: 'highest',
+  hubOptions: { pending: true }, hubOptionsRequestId: 0,
+  hubAirline: '', hubResults: { pending: true }, hubRequestId: 0, hubController: null, hubSort: 'highest',
 };
 const paths = {
   summary: 'delays/summary', daily: 'delays/daily', carriers: 'delays/carriers',
@@ -254,6 +256,7 @@ async function loadMetadata() {
   updateCoverage();
   renderResults();
   renderComparison();
+  renderAirlineHubs();
 }
 
 function compareDatesValid() {
@@ -265,6 +268,171 @@ function compareDatesValid() {
   $('compare-from').max = to || state.status.data?.lastDate || '';
   $('compare-to').min = from || '';
   return !message;
+}
+
+function renderHubOptions() {
+  const select = $('hub-airline');
+  const options = state.hubOptions.data ?? [];
+  select.disabled = !options.length || !!state.hubOptions.pending || !!state.hubOptions.error;
+  if (state.hubOptions.pending) {
+    select.innerHTML = '<option>Loading airlines…</option>';
+  } else if (state.hubOptions.error) {
+    select.innerHTML = '<option>Airlines unavailable</option>';
+  } else if (!options.length) {
+    select.innerHTML = '<option>No airlines available</option>';
+  } else {
+    select.replaceChildren(...options.map((item) => {
+      const option = document.createElement('option');
+      option.value = item.code;
+      option.textContent = `${item.code} — ${item.name}`;
+      return option;
+    }));
+    select.value = state.hubAirline;
+  }
+}
+
+async function loadHubOptions(force = false) {
+  if (!force && (state.hubOptions.data || state.hubOptions.loading)) return;
+  const id = ++state.hubOptionsRequestId;
+  state.hubOptions = { pending: true, loading: true };
+  renderHubOptions();
+  renderAirlineHubs();
+  try {
+    const options = await request('delays/hub-airlines');
+    if (id !== state.hubOptionsRequestId) return;
+    if (!Array.isArray(options)) throw new Error('Invalid airline list');
+    state.hubOptions = { data: options.filter((item) => item && typeof item.code === 'string') };
+    if (!state.hubOptions.data.some((item) => item.code === state.hubAirline)) {
+      state.hubAirline = state.hubOptions.data.find((item) => item.code === 'UA')?.code
+        || state.hubOptions.data[0]?.code || '';
+    }
+    renderHubOptions();
+    loadAirlineHubs();
+  } catch {
+    if (id !== state.hubOptionsRequestId) return;
+    state.hubOptions = { error: true };
+    renderHubOptions();
+    renderAirlineHubs();
+  }
+}
+
+function hubRate(item) {
+  const denominator = Number(item.departureFlights);
+  const delayed = Number(item.delayedDepartures);
+  return item.delayedDeparturePct == null || !Number.isFinite(denominator) || denominator <= 0
+    || !Number.isFinite(delayed) ? null : delayed / denominator;
+}
+
+function renderAirlineHubs() {
+  const summary = $('airline-hubs-summary');
+  const target = $('airline-hubs-results');
+  const options = state.hubOptions.data ?? [];
+  const selected = options.find((item) => item.code === state.hubAirline);
+  const { hubResults } = state;
+  const from = $('compare-from').value;
+  const to = $('compare-to').value;
+  $('airline-hubs-period').textContent = from || to
+    ? `${from ? dateLabel(from) : 'First available'} → ${to ? dateLabel(to) : 'Latest available'}`
+    : 'Full available period';
+  if (state.hubOptions.pending) {
+    summary.textContent = 'Loading reporting-airline shortlists';
+    target.innerHTML = `<div class="compare-status">${loading(210)}</div>`;
+    return;
+  }
+  if (state.hubOptions.error) {
+    summary.textContent = 'Airline shortlists unavailable';
+    target.innerHTML = `<div class="compare-status">${empty('The reporting-airline list could not be retrieved. Check the connection and retry.', true).replace('data-action="retry"', 'data-action="retry-hub-options"')}</div>`;
+    return;
+  }
+  if (!options.length || !selected) {
+    summary.textContent = 'No reporting airlines available';
+    target.innerHTML = `<div class="compare-status">${empty('No airline hub shortlists are available yet. Try refreshing when data is loaded.')}</div>`;
+    return;
+  }
+  if (hubResults.invalid) {
+    summary.textContent = `${selected.name} · ${selected.code}`;
+    target.innerHTML = `<div class="compare-status">${empty('Choose a date range with the start on or before the end.')}</div>`;
+    return;
+  }
+  if (hubResults.pending) {
+    summary.textContent = `${selected.name} · ${selected.code} / Loading its configured hubs and bases`;
+    target.innerHTML = `<div class="compare-status">${loading(260)}</div>`;
+    return;
+  }
+  if (hubResults.error) {
+    summary.textContent = `${selected.name} · ${selected.code} / Results unavailable`;
+    target.innerHTML = `<div class="compare-status">${empty('This airline’s hub departures could not be retrieved. Check the connection and retry.', true).replace('data-action="retry"', 'data-action="retry-airline-hubs"')}</div>`;
+    return;
+  }
+  const data = hubResults.data;
+  const shortlist = selected.airports || [];
+  const returned = Array.isArray(data?.airports) ? data.airports : [];
+  const rows = shortlist.length
+    ? shortlist.map((code) => returned.find((item) => item.airport === code) || { airport: code })
+    : returned;
+  summary.textContent = `${data?.airline?.name || selected.name} · ${data?.airline?.code || selected.code} / ${shortlist.length} configured ${shortlist.length === 1 ? 'hub or base' : 'hubs and bases'} / ${returned.length} returned`;
+  if (!rows.length) {
+    target.innerHTML = `<div class="compare-status">${empty('No configured hubs or bases were returned for this airline and date range. Try a wider period.')}</div>`;
+    return;
+  }
+  const metadata = state.airports.data ?? [];
+  const sorted = [...rows].sort((a, b) => {
+    if (state.hubSort === 'airport') return String(a.airport).localeCompare(String(b.airport));
+    const x = hubRate(a);
+    const y = hubRate(b);
+    if (x == null || y == null) return x == null ? (y == null ? String(a.airport).localeCompare(String(b.airport)) : 1) : -1;
+    return (state.hubSort === 'highest' ? y - x : x - y) || String(a.airport).localeCompare(String(b.airport));
+  });
+  target.innerHTML = `<div class="airline-hubs-key" aria-hidden="true"><span>Airport / hub or base</span><span>Delayed share</span><span>Rate</span><span>Delayed / departures</span><span>Total flights</span></div>
+    <ol class="airline-hubs-list" aria-label="${escapeHtml(selected.name)} origin departures at configured hubs and bases">
+      ${sorted.map((item) => {
+        const code = String(item.airport ?? '');
+        const airport = metadata.find((entry) => entry.code === code);
+        const place = airport ? [airport.city, airport.name].filter(Boolean).join(' · ') : 'Airport metadata unavailable';
+        const rate = hubRate(item);
+        const percent = rate == null ? 'N/A' : `${escapeHtml(item.delayedDeparturePct)}%`;
+        const delayed = item.delayedDepartures == null ? 'N/A' : number(Number(item.delayedDepartures));
+        const departures = item.departureFlights == null ? 'N/A' : number(Number(item.departureFlights));
+        const flights = item.flights == null ? 'N/A' : number(Number(item.flights));
+        return `<li class="airline-hubs-row" data-testid="row-airline-hub-${escapeHtml(code)}" aria-label="${escapeHtml(selected.name)} at ${escapeHtml(code)}, ${escapeHtml(place)}: ${percent} delayed, ${delayed} delayed departures of ${departures} departure flights, ${flights} total flights">
+          <span class="airline-hubs-place"><strong class="hub-code">${escapeHtml(code)}</strong><span>${escapeHtml(place)}</span></span>
+          <span class="airline-hubs-track" aria-hidden="true"><span style="width:${rate == null ? 0 : Math.max(0, Math.min(100, rate * 100))}%"></span></span>
+          <strong class="airline-hubs-rate ${rate == null ? 'is-na' : ''}">${percent}</strong>
+          <span class="airline-hubs-count"><strong>${delayed} / ${departures}</strong><small>delayed / departures</small></span>
+          <span class="airline-hubs-total">${flights}<small>total flights</small></span>
+        </li>`;
+      }).join('')}
+    </ol>`;
+}
+
+async function loadAirlineHubs() {
+  state.hubController?.abort();
+  const id = ++state.hubRequestId;
+  if (!compareDatesValid()) {
+    state.hubResults = { invalid: true };
+    renderAirlineHubs();
+    return;
+  }
+  if (!state.hubAirline || !state.hubOptions.data) {
+    renderAirlineHubs();
+    return;
+  }
+  const controller = new AbortController();
+  state.hubController = controller;
+  const params = { airline: state.hubAirline };
+  if ($('compare-from').value) params.from = $('compare-from').value;
+  if ($('compare-to').value) params.to = $('compare-to').value;
+  state.hubResults = { pending: true };
+  renderAirlineHubs();
+  try {
+    const data = await request('delays/airline-hubs', params, controller.signal);
+    if (id !== state.hubRequestId) return;
+    state.hubResults = { data };
+  } catch {
+    if (id !== state.hubRequestId) return;
+    state.hubResults = { error: true };
+  }
+  renderAirlineHubs();
 }
 
 const NAS_MEASURES = {
@@ -377,8 +545,10 @@ async function loadComparison() {
   if (!compareDatesValid()) {
     state.compare = { invalid: true };
     renderComparison();
+    loadAirlineHubs();
     return;
   }
+  loadAirlineHubs();
   state.compareController = new AbortController();
   const params = {};
   if ($('compare-from').value) params.from = $('compare-from').value;
@@ -403,10 +573,14 @@ function switchView() {
     const destination = next === 'compare' ? ['compare-from', 'compare-to'] : ['from', 'to'];
     destination.forEach((id, index) => { $(id).value = $(source[index]).value; });
     state.activeView = next;
-    if (next === 'compare') loadComparison();
+    if (next === 'compare') {
+      loadComparison();
+      loadHubOptions();
+    }
     else loadResults();
   } else if (next === 'compare' && state.compare.pending && !state.compareController) {
     loadComparison();
+    loadHubOptions();
   }
   $('detail-view').hidden = next !== 'detail';
   $('compare-view').hidden = next !== 'compare';
@@ -548,6 +722,8 @@ document.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'retry') loadResults();
   if (action === 'retry-compare') loadComparison();
+  if (action === 'retry-hub-options') loadHubOptions(true);
+  if (action === 'retry-airline-hubs') loadAirlineHubs();
   if (action === 'retry-metadata') loadMetadata();
   if (action === 'retry-airlines') loadAvailableAirlines();
   if (action === 'remove-rule') {
@@ -572,6 +748,14 @@ for (const [id, key] of [['departure-sort', 'departureSort'], ['nas-sort', 'nasS
     renderComparison();
   });
 }
+$('hub-sort').addEventListener('change', () => {
+  state.hubSort = $('hub-sort').value;
+  renderAirlineHubs();
+});
+$('hub-airline').addEventListener('change', () => {
+  state.hubAirline = $('hub-airline').value;
+  loadAirlineHubs();
+});
 $('airline-trigger').addEventListener('click', () => {
   const willOpen = $('airline-menu').hidden;
   $('airline-menu').hidden = !willOpen;
@@ -608,7 +792,7 @@ $('compare-reset').addEventListener('click', () => {
 });
 $('compare-refresh').addEventListener('click', async () => {
   $('compare-refresh').disabled = true;
-  await Promise.all([loadMetadata(), loadComparison()]);
+  await Promise.all([loadMetadata(), loadComparison(), loadHubOptions(true)]);
   $('compare-refresh').disabled = false;
 });
 window.addEventListener('hashchange', switchView);

@@ -47,6 +47,10 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+# Local design Canvas; not part of the Airport Delay Dashboard repository.
+/artifacts/mockup-sandbox/
+/tsconfig.base.json
+/.agents/
 
 # Java / Maven
 **/target/

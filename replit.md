@@ -6,29 +6,23 @@ Explore official BTS flight delay trends for 32 U.S. departure airports using a 
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (through its managed workflow)
 - `pnpm --filter @workspace/airport-delay-dashboard run dev` — run the dashboard (through its managed workflow)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm run typecheck` — syntax-check the dashboard JavaScript
+- `pnpm run build` — build the Java API and dashboard
 - Required env: `DATABASE_URL` — Postgres connection string
 - The live dashboard uses plain HTML, CSS and browser JavaScript with a Java API backed by the existing PostgreSQL BTS tables. See `docs/java-postgresql.md` for run commands and backend context.
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- pnpm workspaces and Node.js 24 for the Vite dashboard
+- API: Java and Maven
+- Data: existing PostgreSQL BTS aggregates
+- Dashboard: plain HTML, CSS and browser JavaScript
 
 ## Where things live
 
 - `artifacts/airport-delay-dashboard/` — vanilla JavaScript dashboard, native SVG charts, airport/date controls
-- `artifacts/api-server/src/routes/airport-delays.ts` — parameterized SQL analytics API
-- `artifacts/api-server/src/lib/bts-import.ts` — official BTS ZIP ingestion
-- `lib/db/src/schema/airport-delays.ts` — SQL fact and import-coverage tables
-- `lib/api-spec/openapi.yaml` — API contract; run codegen after changes
+- `artifacts/api-server/java/` — Java analytics and official BTS ZIP ingestion
+- `lib/api-spec/openapi.yaml` — API contract
 - `docs/bts-data.md` — source fields, metric definitions, and example SQL
 
 ## Architecture decisions
@@ -36,15 +30,16 @@ Explore official BTS flight delay trends for 32 U.S. departure airports using a 
 - Use BTS Reporting Carrier On-Time Performance monthly ZIPs rather than a third-party dataset. They are public and need no API key.
 - Store daily airport/carrier aggregates in PostgreSQL rather than millions of individual flight rows. This keeps chart queries fast while preserving the metrics used by this dashboard.
 - An airport selects **originating flights**. Departure metrics describe that airport; arrival metrics and BTS cause attribution describe those flights at their destinations.
-- On API startup and daily thereafter, check the latest published month and import the three most recently released months that are not yet loaded. Previously imported months remain available.
+- On API startup and daily thereafter, check the rolling 24-month window for missing months and import them. Previously imported months remain available.
 
 ## Product
 
 Select one of 32 airports to compare daily reliability, airline performance, weekday patterns, delay causes, and cancellation rates. Coverage and source attribution are visible; no invented flights are used.
+Compare hubs also shows all-carrier airport rankings and each reporting airline's departure performance across its configured hubs and major bases.
 
-## User preferences
+## Repository scope
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Keep GitHub `main` limited to the active dashboard, Java API, and relevant operation/configuration files. Do not commit unused TypeScript/Node stacks or separate design previews.
 
 ## Gotchas
 
@@ -54,4 +49,4 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See `docs/java-postgresql.md` for the Java API and database details
