@@ -6,15 +6,27 @@ The historical charts are about **flights originating at the selected airport**.
 
 ## Screenshots
 
-These are screenshots of the running app. Flight totals and FAA advisories reflect the data available when the images were captured and may change.
+Each dashboard screen appears twice below: **desktop** shows its wide-screen layout, while **mobile** shows how the same screen rearranges for a narrow phone display. These are screenshots of the running app; flight totals and FAA advisories reflect the data available when captured and may change.
 
 ### Airport detail
 
+**Desktop view (1365 px wide)** — controls, snapshot, charts, carrier table, and arrival outcomes across the wide layout.
+
 <a href="docs/screenshots/airport-detail.jpg"><img src="docs/screenshots/airport-detail.jpg" alt="Airport detail view showing the departure-airport and airline controls, BTS coverage, FAA advisories, snapshot metrics, daily and weekday charts, carrier comparison, and arrival outcomes." width="760"></a>
+
+**Mobile view (402 px wide)** — the same Airport detail screen with stacked controls, metrics, and charts.
+
+<a href="docs/screenshots/airport-detail-mobile.jpg"><img src="docs/screenshots/airport-detail-mobile.jpg" alt="Mobile Airport detail view showing vertically stacked airport and date filters, dataset and FAA panels, snapshot metrics, and daily and weekday charts." width="320"></a>
 
 ### Compare hubs
 
+**Desktop view (1365 px wide)** — airport rankings side by side, followed by the airline-at-its-hubs comparison.
+
 <a href="docs/screenshots/compare-hubs.jpg"><img src="docs/screenshots/compare-hubs.jpg" alt="Compare hubs view showing date controls, BTS and FAA status, departure delay rankings, NAS-attributed arrival delay rankings, and the airline-at-its-hubs comparison." width="760"></a>
+
+**Mobile view (402 px wide)** — the same Compare hubs screen with rankings stacked for phone viewing.
+
+<a href="docs/screenshots/compare-hubs-mobile.jpg"><img src="docs/screenshots/compare-hubs-mobile.jpg" alt="Mobile Compare hubs view showing stacked date controls, BTS and FAA panels, departure delay ranking, and NAS-attributed minutes ranking." width="320"></a>
 
 ## What the dashboard does
 
