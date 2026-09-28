@@ -1,185 +1,133 @@
-# AIR / INDEX — Airport Delay Dashboard
+# AIR / INDEX
 
-AIR / INDEX is a dashboard for exploring **historical flight reliability at 32 U.S. departure airports**. It combines official U.S. Bureau of Transportation Statistics (BTS) on-time performance records with a separate, current Federal Aviation Administration (FAA) airspace-advisory view. You can inspect one airport in detail or compare departure performance across a curated set of hubs and major bases.
+**A dashboard for exploring flight delays and cancellations at 32 U.S. departure airports, including major airline hubs and bases.**
 
-The historical charts are about **flights originating at the selected airport**. Their arrival outcomes describe those same flights when they reach their destinations—not all flights arriving at the selected airport. FAA advisories provide operational context, not an explanation of any historical BTS result. This is an analytical dashboard, **not a live flight tracker or a prediction of future delays**.
+AIR / INDEX combines 24 months of official U.S. Bureau of Transportation Statistics (BTS) on-time performance data with current Federal Aviation Administration (FAA) airport advisories. You can look at one airport in detail or compare delay patterns across hubs, airlines, days of the week, and months.
+
+This is an analytical tool for exploring historical patterns. It is not a live flight tracker and it does not predict future delays.
+
+## Why I built this
+
+I used to be an air traffic controller, so I spent years seeing delays from the tower side. After reading about new AI tools for air traffic flow management, I got curious how delays actually break down across the major airline hubs from the airline side. This project was my way of finding out.
 
 ## Screenshots
 
-Each dashboard screen appears twice below: **desktop** shows its wide-screen layout, while **mobile** shows how the same screen rearranges for a narrow phone display. These are screenshots of the running app; flight totals and FAA advisories reflect the data available when captured and may change.
+Each dashboard view is shown twice: **desktop** shows the wide layout, and **mobile** shows how the *same view* rearranges for a phone. These are screenshots of the running app; totals and FAA advisories may change as the underlying data updates. Click an image to see it at full size.
 
 ### Airport detail
 
-**Desktop view (1365 px wide)** — controls, snapshot, charts, carrier table, and arrival outcomes across the wide layout.
+**Desktop view (1365 px wide)**
 
-<a href="docs/screenshots/airport-detail.jpg"><img src="docs/screenshots/airport-detail.jpg" alt="Airport detail view showing the departure-airport and airline controls, BTS coverage, FAA advisories, snapshot metrics, daily and weekday charts, carrier comparison, and arrival outcomes." width="760"></a>
+<a href="docs/screenshots/airport-detail.jpg"><img src="docs/screenshots/airport-detail.jpg" alt="Desktop Airport detail view with filters, BTS and FAA panels, snapshot metrics, trend charts, carrier table, and arrival outcomes." width="760"></a>
 
-**Mobile view (402 px wide)** — the same Airport detail screen with stacked controls, metrics, and charts.
+**Mobile view (402 px wide)**
 
-<a href="docs/screenshots/airport-detail-mobile.jpg"><img src="docs/screenshots/airport-detail-mobile.jpg" alt="Mobile Airport detail view showing vertically stacked airport and date filters, dataset and FAA panels, snapshot metrics, and daily and weekday charts." width="320"></a>
+<a href="docs/screenshots/airport-detail-mobile.jpg"><img src="docs/screenshots/airport-detail-mobile.jpg" alt="Mobile Airport detail view with stacked filters, BTS and FAA panels, snapshot metrics, and daily and weekday charts." width="320"></a>
 
 ### Compare hubs
 
-**Desktop view (1365 px wide)** — airport rankings side by side, followed by the airline-at-its-hubs comparison.
+**Desktop view (1365 px wide)**
 
-<a href="docs/screenshots/compare-hubs.jpg"><img src="docs/screenshots/compare-hubs.jpg" alt="Compare hubs view showing date controls, BTS and FAA status, departure delay rankings, NAS-attributed arrival delay rankings, and the airline-at-its-hubs comparison." width="760"></a>
+<a href="docs/screenshots/compare-hubs.jpg"><img src="docs/screenshots/compare-hubs.jpg" alt="Desktop Compare hubs view with side-by-side departure and NAS rankings and an airline-at-its-hubs comparison." width="760"></a>
 
-**Mobile view (402 px wide)** — the same Compare hubs screen with rankings stacked for phone viewing.
+**Mobile view (402 px wide)**
 
-<a href="docs/screenshots/compare-hubs-mobile.jpg"><img src="docs/screenshots/compare-hubs-mobile.jpg" alt="Mobile Compare hubs view showing stacked date controls, BTS and FAA panels, departure delay ranking, and NAS-attributed minutes ranking." width="320"></a>
+<a href="docs/screenshots/compare-hubs-mobile.jpg"><img src="docs/screenshots/compare-hubs-mobile.jpg" alt="Mobile Compare hubs view with stacked date controls, departure ranking, and NAS-attributed minutes ranking." width="320"></a>
+
+## Key findings
+
+These are results from the imported BTS data covering **August 2024 through July 2026**. They describe flights departing the 32 tracked airports; they are not nationwide measures. The data and estimates below are a snapshot of that period even if the dashboard later imports more months.
+
+- **Late aircraft was the largest delay category.** It made up **39.5% of the five attributed arrival-delay categories' combined minutes**, ahead of carrier (**33.6%**) and NAS—the National Airspace System (**20.9%**). Delays passed from one flight to the next were the biggest single category of attributed minutes.
+- **Airports ranked differently depending on the measure.** Dallas Love Field had the highest delayed-departure share (**28.2%**) but relatively low NAS-attributed delay (**2.33 minutes per arrival**). JFK had a lower delayed-departure share (**20.7%**) but higher NAS-attributed delay (**4.87 minutes per arrival**). Honolulu had the lowest delayed-departure share (**13.7%**).
+- **Delays varied by weekday and month.** Sunday departures were delayed most often (**26.0%**) and Tuesday departures least often (**18.6%**). July was the most delay-prone month (**31.0%**) and September the least (**16.8%**) across the two observed years.
+- **Performance got worse between the two 12-month periods.** Delayed-departure share rose from **21.4% to 23.7%**, and cancellation rate from **1.32% to 1.87%**, comparing August 2024–July 2025 with August 2025–July 2026. The change was not uniform: Dallas Love Field and Fort Lauderdale each worsened by more than six percentage points, while Houston Intercontinental improved.
+- **Cancellations were concentrated.** DCA and LaGuardia had the highest cancellation rates (about **3.6%**) and Salt Lake City the lowest (**0.57%**). January 24–27, 2026 accounted for **75% of that January's cancellations**; on January 25, nearly half of reported flights from the tracked airports were cancelled.
+
+## What this suggests
+
+These are **hypotheses, not conclusions the data proves**. BTS reports arrival-delay causes in broad categories and does not show exactly why any particular flight was late or cancelled.
+
+- **Different airports may need different solutions.** Dallas Love Field's high departure-delay share alongside lower NAS minutes raises questions about airline operations, turnarounds, and late incoming aircraft. JFK's higher NAS minutes raises questions about airspace and traffic flow. The aggregate data alone cannot confirm either explanation.
+- **The ripple effect matters.** Because late aircraft is the largest attributed category, predicting and managing disruptions earlier in the day *might* reduce delays that pass to later flights. This dataset does not measure what a specific intervention would save.
+- **Peak days and months may leave less room to absorb problems.** Sundays and July had higher delay rates. Demand and summer thunderstorms are possible contributors worth testing with additional data, not causes established by this dashboard.
+
+## Estimated cost of delays (guesstimates)
+
+Everything in this section is a **rough illustration, not a measured result or forecast**. The dataset reports delay minutes and cancellations, not costs. The dollar estimates depend entirely on the assumptions below; do not add the scenarios together as though they were independent losses.
+
+### Assumptions
+
+- The five attributed arrival-delay categories total about **138 million minutes over 24 months**, or roughly **69 million minutes per year**, for flights departing the 32 tracked airports.
+- Assume an average airline cost of **$75 per attributed delay minute** for crew, fuel, and aircraft time. This is an illustrative input, **not a cost measured by BTS**, and it excludes passenger costs.
+- Assume **$10,000–$20,000 per cancelled flight** for lost revenue, rebooking, refunds, and repositioning aircraft and crews. This is also an illustrative input, not a measured cancellation cost.
+
+### Guesstimated results
+
+- At $75 per attributed minute, the illustrated airline delay cost is roughly **$5 billion a year** for these flights.
+- If the assumed cost scaled directly with preventable minutes, a **5% reduction** would represent roughly **$250 million a year**, and a **10% reduction** roughly **$500 million**.
+- Applying the observed rise in cancellation rate to roughly 4.5 million reported flights per year is equivalent to approximately **24,000 additional cancellations a year**, or **$240 million–$480 million** at the assumed cost per cancellation. This is a comparison of two periods, not a forecast.
+- January 24–27, 2026 had **12,500 cancellations** in the tracked data; at the assumed cost per cancellation, that four-day disruption illustrates **$125 million–$250 million**.
+
+### Possible impact on crews (not measured)
+
+This dataset does not include crew information, so these are possible effects rather than results. When delays and cancellations stack up, pilots and flight attendants can reach legal duty-time limits. Airlines may then call in reserve crews, rebook hotels, and reposition crews and aircraft that end up in the wrong cities. Fewer disruptions would likely mean less of that extra cost for airlines and more predictable schedules for crews, with fewer extended days and last-minute changes.
 
 ## What the dashboard does
 
 ### Airport detail
 
-1. **Departure airport:** Choose one of 32 supported origin airports. Airport names and cities appear alongside their codes when metadata is available. The supported airport codes are `ATL`, `DFW`, `DEN`, `ORD`, `LAX`, `JFK`, `LGA`, `EWR`, `SFO`, `SEA`, `CLT`, `PHX`, `MIA`, `PHL`, `DCA`, `IAD`, `IAH`, `DTW`, `MSP`, `SLC`, `BOS`, `PDX`, `ANC`, `HNL`, `DAL`, `HOU`, `MDW`, `BWI`, `LAS`, `MCO`, `FLL`, and `SJU`.
-2. **Airline selection:** Select one or more BTS *reporting carriers* that have records for the chosen airport and date range. The menu shows full airline names alongside their two-character reporting codes. No selection means all available airlines. Regional operators can report flights flown for another airline's brand, so the reporting carrier is not always the name on a passenger's ticket.
-3. **Date range:** Set `From` and `To` within the imported dataset's displayed coverage, or use **All dates**. Date validation prevents an inverted or out-of-coverage range. **Refresh** fetches current dashboard responses; it cannot make BTS publish an unreleased month.
-4. **Advanced controls — Filter records:** Add up to 30 rules against the raw daily airport-and-airline metrics listed below. Each rule has **At least**, **At most**, or **Exactly** and a nonnegative whole-number threshold. Multiple rules are combined with **AND**. They select daily airport/carrier aggregate rows *before* those rows are added into any detail chart or summary. Changes remain a draft until **Apply filters** is clicked; selected airlines and applied rules appear as chips.
-5. **Advanced controls — Show metrics:** Choose which summary cards are displayed, including the four default indicators and 13 raw metrics. This is a presentation choice, **not** another record filter. Selected raw metrics also gain monthly trend charts. Resetting the metric selection restores the four default cards.
-6. **Dataset coverage:** See the BTS source, number of imported flight records, date range, and number of loaded months. Coverage is derived from what has actually been imported, rather than being a promised date range for every airline or airport.
-7. **Current airspace advisories:** See the FAA feed's affected-airport count, last check and source-update times, and any current events for the selected airport. Event details can include the advisory type, reason, reported delay text, start/reopen information, and a link to the FAA source. A restriction can apply to only some operations; it does not necessarily mean an airport is closed.
-
-The airport-detail results are:
-
-| View | What it shows |
-|---|---|
-| **Airport snapshot** | Default cards for on-time departure percentage, number of reported scheduled flights, average departure delay, and cancellation rate. Additional selected raw totals can also appear here. |
-| **How the days performed** | An interactive daily trend with on-time departure percentage and average departure delay in minutes on separate scales. It shows reported days only; missing dates are not filled in as zero. Hover or focus a point for its date, values, and flight count. |
-| **The weekly rhythm** | On-time departure rate by day of the week, Monday through Sunday, with flight counts available on the chart. |
-| **Who operates here** | Reporting carriers at the chosen origin, sorted by departure volume, with full name/code, flight count, on-time rate, and average departure delay. |
-| **What happened after takeoff** | Number of flights with reported arrivals, average arrival delay, diverted flights, and BTS-attributed **arrival**-delay minutes for carrier, weather, National Airspace System (NAS), security, and late aircraft. These are not causes assigned to the selected departure airport. |
-| **Monthly signals** | Optional monthly totals for each raw metric enabled under **Show metrics**. Each measure has its own scale; months without observations are absent, not zero. |
-
-**Filters do not silently fall back to a broader result.** Airline availability is based on the airport and dates, not advanced record rules. If a selected airline has no flights after an airport/date change, it remains selected and the dashboard explains why there are no matches. Likewise, if a rule eliminates its rows, the charts show a no-match state rather than airport-wide data. **Clear airline selection** is an explicit action that broadens results to all available airlines.
+- Pick any of the 32 supported airports, one or more reporting airlines, and a date range.
+- See on-time departure percentage, flight counts, average departure delay, and cancellation rate.
+- View daily trends, day-of-week patterns, a breakdown of airlines operating at the airport, and what happened to those flights after departure, including arrival-delay minutes by cause.
+- Add optional record filters and choose which metrics to display.
+- See any current FAA advisories for the selected airport, with the time of the last check.
 
 ### Compare hubs
 
-This is a separate view with its own date controls, **All dates**, **Refresh**, dataset-coverage display, and FAA advisory summary. Jump links move to each comparison. The airport rankings use **all reporting airlines**, not the airline chosen on the Airport detail screen. The compared airports are a **curated subset** of supported hubs and major bases, not every U.S. airport; `GUM` is excluded because this BTS dataset does not cover it.
+- Rank airports by delayed-departure share.
+- Rank airports by NAS-attributed arrival-delay minutes per arrival, total NAS minutes, or NAS share of all attributed cause minutes.
+- Compare one reporting airline's performance across its curated hubs and major bases.
 
-| Comparison | What it shows and how to use it |
-|---|---|
-| **The 15-minute threshold** | Ranks airports by the percentage of reported departure flights that left at least 15 minutes late. Each row includes delayed/departure counts and total reported flights. Sort by highest rate, lowest rate, or airport A–Z; show the first eight or expand the list. Rates sort from underlying counts, not rounded display text. |
-| **NAS-attributed minutes** | Compares BTS NAS-attributed **arrival**-delay minutes for flights originating at each airport. Switch between **minutes per arrival** (NAS minutes ÷ flights with reported arrival delay), **total NAS minutes**, and **share of all five attributed cause minutes** (NAS minutes ÷ their combined total). Sort ascending, descending, or A–Z; expand the list and individual rows to see the other measures and denominators. `N/A` means there is no valid denominator. These figures do not establish that the origin airport caused a delay. |
-| **One airline. Its hubs.** | Choose a configured reporting carrier and compare **only that carrier's own origin-departure flights** across its curated hubs and major bases. Rows include delayed share, delayed/departure counts, and reported flights, with highest/lowest/A–Z sorting. This lens is distinct from the all-carrier rankings above. The selectable carriers are United, Alaska, Hawaiian, Southwest, JetBlue, Frontier, and Allegiant; Alaska (`AS`) and Hawaiian (`HA`) remain separate reporting codes. A curated shortlist is not an official BTS designation of current hub status. |
+Supported airports: `ATL`, `DFW`, `DEN`, `ORD`, `LAX`, `JFK`, `LGA`, `EWR`, `SFO`, `SEA`, `CLT`, `PHX`, `MIA`, `PHL`, `DCA`, `IAD`, `IAH`, `DTW`, `MSP`, `SLC`, `BOS`, `PDX`, `ANC`, `HNL`, `DAL`, `HOU`, `MDW`, `BWI`, `LAS`, `MCO`, `FLL`, and `SJU`.
 
-## Data sources and what is used
+## How it works
 
-The application retrieves **official public sources directly**. BTS and FAA are separate datasets with different time meanings; no third-party flight-data provider, fabricated flight records, or live flight-position feed is used.
+A Java service downloads official BTS monthly flight data, keeps the fields this app needs, and stores daily totals by airport and airline in PostgreSQL. It checks daily for newly published months.
 
-| Source | What the source contains | What this app uses | Update behavior |
-|---|---|---|---|
-| [BTS Airline On-Time Statistics — Reporting Carrier On-Time Performance](https://www.transtats.bts.gov/ONTIME/) ([field descriptions](https://www.transtats.bts.gov/Fields.asp?gnoyr_VQ=FGJ)) | Public monthly ZIP archives containing CSV records for individual reported flights, with flight date, reporting carrier, origin and destination, scheduled and actual times, cancellation/diversion flags, departure/arrival delays, and BTS arrival-delay attribution fields. The original files contain many more columns than this app keeps. | Selected fields are aggregated by **flight date + origin airport + reporting airline** and stored in PostgreSQL. All historical metrics, charts, carrier breakdowns, and hub rankings come from those aggregates. Import retains flights originating at the 32 supported airports. | BTS publishes after each month ends. On an initially empty database the importer starts with the latest three published months, then reconciles the latest 24; it checks daily at **05:00 UTC** for newly available or previously missed months. Prior imported months remain available. The on-screen coverage is authoritative for currently available data. |
-| [FAA National Airspace System Status](https://nasstatus.faa.gov/) ([machine-readable airport-status feed](https://nasstatus.faa.gov/api/airport-status-information)) | Current XML airport/airspace advisories, such as ground stops, ground delays, closures, and arrival/departure restrictions, with FAA update time and explanatory event text. | Successful polls are saved as timestamped snapshots with event records. The dashboard shows affected airports among its supported airports, a selected airport's advisory details, and freshness/status information. The full-feed event count can include other airports. | The API polls at startup and about **every 15 minutes while it is running**. Before a successful poll it reports **unavailable**; when the saved fetch or FAA update is more than **30 minutes old**, it reports **stale** and withholds old events rather than suggesting all-clear. Polling pauses while an autoscale process is asleep. |
+The same service checks the FAA airport-status feed about every 15 minutes while running and saves each successful result. If the feed is unavailable or out of date, the dashboard says so instead of showing old information as current.
 
-BTS monthly archives are downloaded from the official `www.transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_{YYYY}_{M}.zip` archive pattern. The app uses the dataset page above for attribution and source-field definitions. The source can have publication lag and gaps; **date coverage does not imply that every carrier flew from every airport on every date**.
+The dashboard is built with HTML, CSS, and JavaScript using Vite, with responsive charts for desktop and mobile. It requests its data from the Java API.
 
-### BTS source fields and stored measures
+Detailed information about controls, source fields, calculations, the database, API routes, and running the project is in the [technical reference](docs/technical-reference.md). See also the [BTS data and SQL notes](docs/bts-data.md), [database schema](docs/database-schema.md), and [Java/API operations](docs/java-postgresql.md).
 
-The importer uses these CSV fields; all other source columns remain in the original BTS files, not in the daily aggregate table. A stored number is a count or summed number of minutes for one airport/carrier/day, **not a flight-level row**.
+## Data sources
 
-| BTS CSV field | Stored measure(s) | Meaning in this app |
-|---|---|---|
-| `FlightDate`, `Origin`, `Reporting_Airline` | `flight_date`, `airport`, `airline` | Date, departure airport, and BTS reporting-carrier code that define a daily aggregate. |
-| Source flight rows | `flights` | Number of reported scheduled flight records in the aggregate. |
-| `DepDelayMinutes` | `departure_flights`, `total_dep_delay_minutes` | Count of records with a reported departure-delay value and sum of their nonnegative delay minutes. |
-| `DepDel15` | `delayed_departures` | Number of departures flagged as delayed **15 minutes or more**. |
-| `ArrDelayMinutes` | `arrival_flights`, `total_arr_delay_minutes` | Count of records with a reported arrival-delay value and sum of their nonnegative delay minutes. |
-| `Cancelled`, `Diverted` | `cancelled_flights`, `diverted_flights` | Counts of records with the respective outcome flag. |
-| `CarrierDelay` | `carrier_delay_minutes` | BTS-attributed arrival-delay minutes assigned to carrier-related causes. |
-| `WeatherDelay` | `weather_delay_minutes` | BTS-attributed arrival-delay minutes assigned to weather. |
-| `NASDelay` | `nas_delay_minutes` | BTS-attributed arrival-delay minutes assigned to the National Airspace System. |
-| `SecurityDelay` | `security_delay_minutes` | BTS-attributed arrival-delay minutes assigned to security. |
-| `LateAircraftDelay` | `late_aircraft_delay_minutes` | BTS-attributed arrival-delay minutes assigned to a late arriving aircraft. |
+- [BTS Reporting Carrier On-Time Performance](https://www.transtats.bts.gov/ONTIME/) from the U.S. Department of Transportation's TranStats: public monthly records for individual flights reported by covered carriers.
+- [FAA National Airspace System Status](https://nasstatus.faa.gov/api/airport-status-information): the FAA's public feed of current ground stops, ground delay programs, restrictions, and closures.
 
-These 13 stored numeric measures—`flights`, `departure_flights`, `arrival_flights`, `delayed_departures`, `cancelled_flights`, `diverted_flights`, the two total-delay-minute fields, and the five cause-minute fields—are the choices for both advanced numeric record rules and optional raw metric displays.
+No third-party or paid **flight-data feed**, and no invented flight records, are used.
 
-The interface currently maps these BTS reporting codes to display names; the code remains visible so a regional operator is not mistaken for a marketed airline:
+## Limitations
 
-| Code | Display name | Code | Display name | Code | Display name |
-|---|---|---|---|---|---|
-| `9E` | Endeavor Air | `AA` | American Airlines | `AS` | Alaska Airlines |
-| `B6` | JetBlue Airways | `DL` | Delta Air Lines | `F9` | Frontier Airlines |
-| `G4` | Allegiant Air | `HA` | Hawaiian Airlines | `MQ` | Envoy Air |
-| `NK` | Spirit Airlines | `OH` | PSA Airlines | `OO` | SkyWest Airlines |
-| `UA` | United Airlines | `WN` | Southwest Airlines | `YX` | Republic Airways |
+- **Historical data has a lag.** BTS publishes monthly after the month ends; the dashboard only shows months successfully imported. Source publication timing can vary.
+- **Delay causes are broad categories.** They are reported by carriers; weather and NAS attribution can involve judgment, and the five categories do not explain every arrival-delay minute.
+- **The view is departure-based.** Arrival results describe flights leaving the selected airport, not all flights arriving there. They do not prove that the departure airport caused a delay.
+- **Reporting carriers are not always marketed brands.** A regional carrier may report flights flown for a larger airline brand.
+- **FAA advisories are current snapshots**, not linked to historical BTS flights.
+- **Two years suggest patterns**, but cannot establish long-term trends.
+- **The hub list is curated for this project**, not an official designation of hub status.
 
-### How calculated indicators work
+## Roadmap
 
-| Indicator | Definition and denominator |
-|---|---|
-| **On-time departures** | `(departure_flights − delayed_departures) ÷ departure_flights × 100`; “on time” means under 15 minutes late. |
-| **Delayed departure share** | `delayed_departures ÷ departure_flights × 100`; used in hub/airport delay rankings. |
-| **Average departure / arrival delay** | `total_dep_delay_minutes ÷ departure_flights` or `total_arr_delay_minutes ÷ arrival_flights`. Early flights contribute zero nonnegative delay minutes; records missing the corresponding delay value are excluded from that average's denominator. |
-| **Cancellation rate** | `cancelled_flights ÷ flights × 100`; the denominator is reported scheduled flight records. |
-| **NAS minutes per arrival** | `nas_delay_minutes ÷ arrival_flights` for the comparison's origin-departing flights. |
-| **NAS share of attributed causes** | `nas_delay_minutes ÷ (carrier + weather + NAS + security + late-aircraft delay minutes)`. |
+Ideas for expanding the project:
 
-Rates and averages require a valid denominator; comparison values without one are shown as `N/A`. **Cause minutes count minutes, not flights**, and the five cause categories need not sum to total arrival delay. A low or high NAS value is not proof that the selected departure airport or an airline was responsible. Cancellation and diversion are distinct outcomes; missing records are not interpreted as zero delay or zero performance.
+- Add ground-stop and delay-program history from FAA Command Center advisories.
+- Add weather data from METARs and TAFs to connect delays with actual conditions.
+- Add hour-of-day patterns using flight-level data.
+- Estimate delay risk from weather forecasts to help with planning ahead.
+- Show how delays cascade into later flights, aircraft positioning, and crew schedules.
 
-### FAA advisory fields
+## How I built it
 
-Each successful feed poll stores its **fetch time**, any parseable **FAA source-update time**, and a count of events across the **full** feed. Events retain the airport code and event type plus optional FAA-provided **reason**, **average delay**, **maximum delay**, **start**, and **reopen/end** text. The UI displays these fields when available. They are operational statements from the FAA, not linked to individual BTS flights or to the selected historical dates.
-
-## How the data reaches the screens
-
-1. The Java service downloads official BTS monthly ZIP/CSV files, extracts the selected fields, and imports one PostgreSQL daily aggregate per `(flight_date, airport, airline)`. A month is marked imported only after its facts commit successfully; imported months are not replaced by sample data.
-2. Separately, the Java service polls the FAA XML feed and saves successful snapshots and their events. A failed poll does not manufacture an empty “all clear” snapshot.
-3. The browser requests the Java API. Historical detail endpoints apply airport, date, selected airline(s), and all advanced numeric rules to the **daily aggregates before summing** them. The FAA status endpoint reads the latest successful advisory snapshot instead. Airline names in the UI are display labels for BTS reporting codes, not a separate live airline data feed.
-
-PostgreSQL tables: `airport_delay_daily` holds historical daily facts; `bts_imported_months` records successful month imports; `faa_nas_snapshots` and `faa_nas_events` store FAA poll history. See the [schema and ER diagram](docs/database-schema.md), [BTS field/SQL notes](docs/bts-data.md), and [Java/API operations](docs/java-postgresql.md).
-
-### API overview
-
-The Java API is served under `/api`. Its contract is in [`lib/api-spec/openapi.yaml`](lib/api-spec/openapi.yaml).
-
-| Route | Purpose |
-|---|---|
-| `/api/healthz` | Service health check. |
-| `/api/airports` | Supported airport names/codes for controls and labels. |
-| `/api/data-status` | Imported BTS record count, first/last dates, month coverage, source URL, and import status. |
-| `/api/nas-status` | Latest FAA snapshot's current/stale/unavailable status and supported-airport advisories. |
-| `/api/delays/summary` | Aggregated snapshot indicators for the detail selection. |
-| `/api/delays/daily` | Daily aggregates used for the trend and optional monthly signals. |
-| `/api/delays/weekday` | Day-of-week aggregates. |
-| `/api/delays/carriers` | Reporting-carrier aggregates and available-airline choices. |
-| `/api/delays/causes` | Five BTS arrival-delay-cause minute totals. |
-| `/api/delays/hub-ranking` | Cross-airport departure and NAS comparison data for the curated shortlist. |
-| `/api/delays/hub-airlines` | Configured airline options for the airline-at-hubs lens. |
-| `/api/delays/airline-hubs` | One reporting airline's results at its configured hubs and major bases. |
-
-For airport detail, `airport` identifies a supported origin. Optional `from`/`to` use ISO dates; repeatable `airline` values identify reporting-carrier codes; repeatable `metric` rules use `field:gte|lte|eq:nonnegative-integer`. For example, `airport=ATL&airline=WN&metric=flights:gte:100` selects Southwest's ATL daily aggregate rows with at least 100 flights, **not** all ATL flights when Southwest has no matches. Comparison routes use their own date/airline parameters as specified by the API contract.
-
-## Project layout and running it
-
-| Path | Role |
-|---|---|
-| `artifacts/airport-delay-dashboard/` | Plain HTML/CSS/browser-JavaScript dashboard built with Vite; responsive native SVG charts and UI tests. |
-| `artifacts/api-server/java/` | Java API, BTS monthly importer, FAA poller, PostgreSQL queries. |
-| `lib/api-spec/openapi.yaml` | API contract. |
-| `docs/` | Deeper documentation of source fields, SQL model, schema/diagram, and API operation. |
-
-The workspace uses **Node.js 24, pnpm, Java/Maven, and PostgreSQL**. The API requires `DATABASE_URL` and a `PORT`; the dashboard workflow supplies its own `PORT` and `BASE_PATH`. The application expects its PostgreSQL tables to exist—it does not create them during startup. The FAA setup SQL in `artifacts/api-server/java/db/` is a local/reference schema file, **not** a production migration to run by hand. No BTS or FAA API key is needed for the public source feeds.
-
-On Replit, use the configured **API Server** and **Airport Delay Dashboard** workflows. Useful workspace commands:
-
-```bash
-pnpm install
-pnpm --filter @workspace/api-server run dev
-pnpm --filter @workspace/airport-delay-dashboard run dev
-pnpm --filter @workspace/airport-delay-dashboard run test
-pnpm run typecheck
-pnpm run build
-```
-
-The two development services need their **own configured ports/routing** when run outside the managed workflows. The first BTS import may download large archives in the background; check `/api/data-status` and the dashboard's coverage banner rather than assuming an initially empty database contains demo flights. The Node regression tests cover airline/date/rule query scope; the historical and advisory feeds still depend on their external providers and an available database.
-
-## Interpretation and limitations
-
-- **History versus live context:** BTS performance is monthly historical reporting; FAA advisories are a separately polled operational snapshot. Neither proves what caused a specific flight's delay.
-- **Source versus imported history:** BTS's public source series reaches back to 1987, but this app does **not** import every year of that series. Its available months are those successfully loaded into this database; the initial and rolling import windows are described above.
-- **Origin-based scope:** Selecting an airport never turns the arrival charts into a report of *all arrivals at that airport*. It keeps the selected origin and follows those flights through arrival.
-- **Reporting carriers:** BTS codes identify the carrier that reports/operates a flight, which can differ from the marketed airline. Full names in the interface do not combine different reporting codes.
-- **Daily aggregate rules:** Advanced thresholds apply to each airport/carrier/day aggregate before totals are calculated. A rule on `flights` does **not** select individual flights; it selects days and reporting carriers whose aggregate count meets the rule.
-- **Incomplete coverage is explicit:** A selected carrier or rule can produce no rows. The dashboard keeps the filter and displays a no-match message instead of silently substituting all airlines. Data gaps are not interpolated.
-- **FAA freshness and scope:** FAA advisories can apply to a subset of traffic. When the feed is stale or unavailable, the app does not display old events as if they were current; autoscale sleep pauses background polling.
+This project was built primarily with AI coding tools on Replit. I chose the idea, the data sources, and the features, directed the build, reviewed and tested the results, and analyzed the findings.

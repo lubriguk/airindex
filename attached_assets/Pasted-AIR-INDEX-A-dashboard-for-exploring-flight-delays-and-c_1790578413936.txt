@@ -1,0 +1,119 @@
+AIR / INDEX
+
+A dashboard for exploring flight delays and cancellations at 32 major US airline hubs and bases
+
+AIR / INDEX combines 24 months of official US Bureau of Transportation Statistics (BTS) on time performance data with current Federal Aviation Administration (FAA) airport advisories. You can look at one airport in detail or compare delay patterns across hubs, airlines, days of the week, and months.
+
+This is an analytical tool for exploring historical patterns. It is not a live flight tracker and it does not predict future delays.
+
+Why I built this
+
+I used to be an air traffic controller, so I spent years seeing delays from the tower side. After reading about new AI tools for air traffic flow management, I got curious how delays actually break down across the major airline hubs from the airline side. This project was my way of finding out.
+
+Screenshots
+
+Airport detail (desktop) Show Image
+
+Airport detail (mobile) Show Image
+
+Compare hubs (desktop) Show Image
+
+Compare hubs (mobile) Show Image
+
+Key findings
+
+These are factual results from the data covering August 2024 through July 2026.
+
+Late aircraft was the largest delay category. It made up 39.5% of attributed arrival delay minutes, ahead of carrier (33.6%) and NAS, the National Airspace System (20.9%). Delays passed from one flight to the next were the single biggest share.
+
+Airports ranked differently depending on the measure. Dallas Love Field had the highest delayed departure share (28.2%) but relatively low NAS delay (2.33 minutes per arrival). JFK had a lower delayed departure share (20.7%) but much higher NAS delay (4.87 minutes per arrival). Honolulu had the lowest delayed departure share (13.7%).
+
+Delays followed demand and season. Sunday departures were delayed most often (26.0%) and Tuesday departures least often (18.6%). July was the most delay prone month (31.0%) and September the least (16.8%) in both observed years.
+
+Performance got worse year over year. Delayed departures rose from 21.4% to 23.7% and cancellations rose from 1.32% to 1.87%, comparing August 2024 to July 2025 with August 2025 to July 2026. The change was not uniform. Dallas Love Field and Fort Lauderdale each worsened by more than 6 points, while Houston Intercontinental improved.
+
+Cancellations were concentrated. DCA and LaGuardia had the highest cancellation rates (about 3.6%) and Salt Lake City the lowest (0.57%). A four day period in January 2026 accounted for 75% of that month's cancellations, and on January 25 nearly half of all tracked flights were cancelled.
+
+What this suggests
+
+These are possible explanations, not conclusions the data proves. BTS delay causes are reported by airlines in broad categories and do not show exactly why any single flight was late.
+
+Different airports likely have different root causes. Dallas Love Field's pattern points more toward airline operations, such as tight turnarounds and late arriving aircraft. JFK's points more toward airspace and traffic flow congestion. Those problems would call for different solutions.
+
+The ripple effect matters most. Since late aircraft is the largest category, predicting and managing disruptions earlier in the day could have an outsized impact on everything that follows.
+
+Peak days and months leave less room to absorb problems. Sundays and July combine high demand with, in July's case, thunderstorm season.
+
+Estimated cost of delays (guesstimates)
+
+Everything in this section is a rough guesstimate for illustration, not a measured result. The dataset reports delay minutes and cancellations. It does not report costs, so the dollar figures below depend entirely on the assumptions listed.
+
+Assumptions
+
+The attributed delays in this dataset total about 138 million minutes over 24 months, or about 69 million minutes a year, for flights departing the 32 tracked airports.
+An average airline cost of about $75 per delay minute for crew, fuel, and aircraft time. This is an assumed figure based on commonly cited industry estimates, and it excludes costs to passengers.
+An average cost of about $10,000 to $20,000 per cancelled flight for lost revenue, rebooking, refunds, and repositioning aircraft and crews. This is also an assumption.
+
+Guesstimated results
+
+Attributed delays cost airlines roughly $5 billion a year for these flights.
+A 5% reduction in delay minutes would be worth roughly $250 million a year, and a 10% reduction roughly $500 million.
+The rise in cancellation rate adds roughly 24,000 cancellations a year, costing roughly $240 million to $480 million.
+The four day January 2026 disruption alone may have cost airlines roughly $125 million to $250 million.
+Possible impact on crews (not measured)
+
+This dataset does not include any crew information, so this section describes likely effects rather than results.
+
+When delays and cancellations stack up, pilots and flight attendants can reach their legal duty time limits. Airlines then call in reserve crews, rebook hotels, and reposition crews and aircraft that ended up in the wrong cities. Fewer disruptions would likely mean less of that extra cost for airlines and more predictable schedules for crews, with fewer extended days and last minute changes.
+
+What the dashboard does
+
+Airport detail
+
+Pick any of the 32 supported airports, one or more airlines, and a date range.
+See on time departure percentage, flight counts, average departure delay, and cancellation rate.
+View daily trends, day of week patterns, a breakdown of airlines operating at the airport, and what happened to those flights after departure, including delay minutes by cause.
+Add optional filters and choose which metrics to display.
+See any current FAA advisories for the selected airport, with the time of the last check.
+
+Compare hubs
+
+Rank airports by delayed departure share.
+Rank airports by NAS attributed delay per arrival, total NAS minutes, or NAS share of all attributed delay.
+Compare one airline's performance across its own hubs and major bases.
+
+Supported airports are ATL, DFW, DEN, ORD, LAX, JFK, LGA, EWR, SFO, SEA, CLT, PHX, MIA, PHL, DCA, IAD, IAH, DTW, MSP, SLC, BOS, PDX, ANC, HNL, DAL, HOU, MDW, BWI, LAS, MCO, FLL, and SJU.
+
+How it works
+A Java service downloads official BTS monthly flight data, keeps the fields this app needs, and stores daily totals by airport and airline in PostgreSQL. It checks daily for newly published months.
+The same service checks the FAA airport status feed about every 15 minutes and saves each successful result. If the feed is unavailable or out of date, the dashboard says so instead of showing old information as current.
+The dashboard is built with HTML, CSS, and JavaScript using Vite, with responsive charts for desktop and mobile. It requests its data from the Java API.
+
+Detailed documentation of the data fields, calculations, database schema, and API is in the docs folder.
+
+Data sources
+BTS Reporting Carrier On Time Performance from TranStats, the US Department of Transportation's public domain dataset of individual US airline flights.
+FAA National Airspace System Status, the FAA's public airport status feed of ground stops, ground delay programs, delays, and closures.
+
+No third party flight data, paid services, or made up records are used.
+
+Limitations
+Historical data with a lag. BTS publishes monthly, roughly two months after each month ends.
+Delay causes are reported by airlines in broad categories. The line between weather and NAS delays can involve judgment, and cause minutes are not a complete breakdown of every delay minute.
+Departure based view. Arrival results describe flights leaving the selected airport, not all flights arriving there, and they do not show that the departure airport caused a delay.
+Reporting carriers. BTS lists the airline that operated a flight, which can be a regional carrier flying for a larger brand.
+FAA advisories are current snapshots and are not linked to historical BTS flights.
+Two years of data suggest patterns but are not enough to establish long term trends.
+Hub list. The list of hubs and major bases was chosen for this project and is not an official designation.
+Roadmap
+
+Ideas for expanding the project.
+
+Add ground stop and delay program history from FAA Command Center advisories.
+Add weather data from METARs and TAFs to connect delays with actual conditions.
+Add hour of day patterns using flight level data.
+Estimate delay risk from weather forecasts to help with planning ahead.
+Show how delays cascade into later flights, aircraft positioning, and crew schedules.
+How I built it
+
+This project was built primarily with AI coding tools on Replit. I chose the idea, the data sources, and the features, directed the build, reviewed and tested the results, and analyzed the findings.
