@@ -12,11 +12,10 @@ Separately, the Java service polls the [FAA NAS Status XML feed](https://nasstat
 
 ## Airport detail: controls and views
 
-- **Departure airport and airline:** Airport names/cities accompany codes when metadata is available. Choose one or more BTS reporting carriers available for the airport and date range; no airline selection means all available airlines. A reporting carrier can be a regional operator flying for another brand. Airline availability is determined by airport and dates, not by advanced record rules.
+- **Departure airport and airline:** Airport names/cities accompany codes when metadata is available. Choose one or more BTS reporting carriers available for the airport and date range; no airline selection means all available airlines. A reporting carrier can be a regional operator flying for another brand. Airline availability is determined by airport and dates.
 - **Dates and refresh:** Set `From` and `To` within the imported coverage, use **All dates**, or use **Refresh** to refetch dashboard responses. Validation prevents an inverted or out-of-coverage range; Refresh does not cause an unreleased BTS month to appear.
-- **Filter records:** Add up to **30** rules, each using **At least**, **At most**, or **Exactly** against a nonnegative whole-number threshold on a stored daily numeric measure. Rules combine with **AND** and apply to each airport/carrier/day row **before** rows are summed. Edits are drafts until **Apply filters**; applied airline/rule selections appear as chips.
-- **Show metrics:** Select which summary cards appear from the four default indicators and the 13 stored raw measures. This changes the display, **not** which records qualify. Chosen raw metrics also get monthly total charts. Reset returns the four default cards.
-- **No-match behavior:** A chosen airline stays chosen even if a new airport/date/rule selection has no matching rows. The dashboard explains the lack of matches rather than reverting to all airlines or airport-wide data. **Clear airline selection** explicitly broadens the result. Missing dates/months are not invented as zeros.
+- **Display options:** Select which summary cards appear from the four default indicators and the 13 stored raw measures. This changes the display, **not** which records qualify. Chosen raw metrics also get monthly total charts. Reset returns the four default cards; **Apply display changes** commits the selection.
+- **No-match behavior:** A chosen airline stays chosen even if a new airport or date selection has no matching rows. The dashboard explains the lack of matches rather than reverting to all airlines or airport-wide data. **Clear airline selection** explicitly broadens the result. Missing dates/months are not invented as zeros.
 - **Dataset and FAA panels:** BTS provenance, imported flight count, covered dates, and loaded months appear alongside the FAA affected-airport count, last check, source-update time, and current selected-airport events. Event details and the FAA source link appear when available. A restriction may apply only to certain traffic; it need not mean a full airport closure.
 
 | Result | Detail |
@@ -55,7 +54,7 @@ The Java importer retains one PostgreSQL aggregate per `(flight_date, airport, a
 - **Counts:** `flights` (retained scheduled flight records); `departure_flights` and `arrival_flights` (records with reported delay values); `delayed_departures` (`DepDel15`, at least 15 minutes late); `cancelled_flights`; `diverted_flights`.
 - **Nonnegative minute sums:** `total_dep_delay_minutes` (`DepDelayMinutes`), `total_arr_delay_minutes` (`ArrDelayMinutes`), and `carrier_delay_minutes`, `weather_delay_minutes`, `nas_delay_minutes`, `security_delay_minutes`, `late_aircraft_delay_minutes` from BTS's corresponding arrival-delay attribution columns.
 
-Missing departure/arrival delay values do **not** count as zero-minute flights in averages. Early flights contribute zero nonnegative delay minutes. These 13 measures can be displayed as raw totals or used for record rules. For example, `flights >= 100` selects airport/carrier/**day aggregates** with at least 100 reported flights, not 100 individual source flight rows.
+Missing departure/arrival delay values do **not** count as zero-minute flights in averages. Early flights contribute zero nonnegative delay minutes. These 13 measures can be displayed as raw totals. The API also supports numeric row filters, but the dashboard does not expose them.
 
 | Calculated indicator | Definition |
 |---|---|
@@ -72,7 +71,7 @@ Each successful FAA poll stores its fetch time, any parseable FAA source-update 
 
 ## Data flow and API
 
-The Java service imports BTS monthly ZIP/CSV archives into `airport_delay_daily`; `bts_imported_months` marks a month only after its facts commit successfully. FAA observations go into `faa_nas_snapshots` and `faa_nas_events`. The browser requests the Java API; historical queries apply airport, date, airline, and advanced rules to daily rows before aggregating. The FAA status route reads the latest successful snapshot. See the [database schema](database-schema.md) and [OpenAPI contract](../lib/api-spec/openapi.yaml).
+The Java service imports BTS monthly ZIP/CSV archives into `airport_delay_daily`; `bts_imported_months` marks a month only after its facts commit successfully. FAA observations go into `faa_nas_snapshots` and `faa_nas_events`. The browser requests the Java API; dashboard historical queries apply airport, date, and airline selections to daily rows before aggregating. The FAA status route reads the latest successful snapshot. See the [database schema](database-schema.md) and [OpenAPI contract](../lib/api-spec/openapi.yaml).
 
 | Java route under `/api` | Purpose |
 |---|---|
@@ -89,7 +88,7 @@ The Java service imports BTS monthly ZIP/CSV archives into `airport_delay_daily`
 | `/delays/hub-airlines` | Configured airline options for the airline-at-hubs lens. |
 | `/delays/airline-hubs` | One carrier's results at its configured hubs/bases. |
 
-For detail requests, `airport` is a supported origin; `from`/`to` are optional ISO dates; repeatable `airline` parameters are BTS reporting codes; repeatable `metric` rules use `field:gte|lte|eq:nonnegative-integer`. For example, `airport=ATL&airline=WN&metric=flights:gte:100` returns only Southwest ATL daily aggregates meeting that threshold—never a fallback to all ATL flights. Comparison routes use their own date/airline parameters as specified by OpenAPI.
+For detail requests, `airport` is a supported origin; `from`/`to` are optional ISO dates; repeatable `airline` parameters are BTS reporting codes. The API also accepts repeatable `metric` rules in the form `field:gte|lte|eq:nonnegative-integer`, though the dashboard no longer sends them. For example, `airport=ATL&airline=WN&metric=flights:gte:100` returns only Southwest ATL daily aggregates meeting that threshold—never a fallback to all ATL flights. Comparison routes use their own date/airline parameters as specified by OpenAPI.
 
 ## Project layout and local operation
 
@@ -113,8 +112,8 @@ pnpm run typecheck
 pnpm run build
 ```
 
-Outside the managed workflows, the two services need separate ports and routing. The first BTS import can download large archives asynchronously; inspect `/api/data-status` rather than assuming demo data. The Node regression tests cover airline/date/rule query scope. Availability of real historical and advisory results still depends on the external feeds and database.
+Outside the managed workflows, the two services need separate ports and routing. The first BTS import can download large archives asynchronously; inspect `/api/data-status` rather than assuming demo data. The Node regression tests cover airline/date query scope. Availability of real historical and advisory results still depends on the external feeds and database.
 
 ## Interpretation limits
 
-Historical BTS reporting and current FAA advisories are separate; neither proves why any individual flight was delayed. BTS's public series goes back to 1987, but only successfully imported months appear here. Regional reporting carriers can differ from marketed brands. Advanced numeric rules act on daily carrier aggregates before totals are computed, and a no-match result is never silently broadened. Gaps are not interpolated. A stale or unavailable FAA snapshot does not mean “all clear,” and polling pauses if an autoscale process sleeps.
+Historical BTS reporting and current FAA advisories are separate; neither proves why any individual flight was delayed. BTS's public series goes back to 1987, but only successfully imported months appear here. Regional reporting carriers can differ from marketed brands. A no-match airline selection is never silently broadened. API-only numeric rules act on daily carrier aggregates before totals are computed. Gaps are not interpolated. A stale or unavailable FAA snapshot does not mean “all clear,” and polling pauses if an autoscale process sleeps.

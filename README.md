@@ -80,7 +80,7 @@ This dataset does not include crew information, so these are possible effects ra
 - Pick any of the 32 supported airports, one or more reporting airlines, and a date range.
 - See on-time departure percentage, flight counts, average departure delay, and cancellation rate.
 - View daily trends, day-of-week patterns, a breakdown of airlines operating at the airport, and what happened to those flights after departure, including arrival-delay minutes by cause.
-- Add optional record filters and choose which metrics to display.
+- Choose which summary metrics and monthly trends to display.
 - See any current FAA advisories for the selected airport, with the time of the last check.
 
 ### Compare hubs

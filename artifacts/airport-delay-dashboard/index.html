@@ -47,7 +47,7 @@
           <div class="filter-main">
           <div class="filter-airport-group">
             <label class="field field-airport"><span class="field-label">Departure airport</span><span class="select-wrap"><select class="control select-control" id="airport" data-testid="select-airport" aria-label="Departure airport"></select><span class="select-chevron" aria-hidden="true">⌄</span></span></label>
-            <div class="field airline-field"><span class="field-label" id="airline-label">Airlines at this airport</span><div class="airline-picker"><button class="control airline-trigger" id="airline-trigger" type="button" aria-labelledby="airline-label airline-value" aria-describedby="airline-scope-help airline-scope-note" aria-expanded="false" aria-controls="airline-menu" data-testid="button-select-airlines" disabled><span class="picker-value" id="airline-value">Loading airlines…</span><span aria-hidden="true">⌄</span></button><div class="airline-menu" id="airline-menu" hidden role="group" aria-label="Airlines with reported flights for this airport and date range"><p class="airline-menu-note">Choose one or more. No selection includes all available airlines.</p><div id="airline-options"></div></div></div><p class="airline-help" id="airline-scope-help">Only airlines with BTS flights for this airport and date range. Advanced rules narrow the charts, not this list.</p><p class="airline-scope-note" id="airline-scope-note" role="status" aria-live="polite" hidden></p><button class="clear-airlines" id="clear-airlines" type="button" data-testid="button-clear-airlines" hidden>Clear airline selection</button></div>
+            <div class="field airline-field"><span class="field-label" id="airline-label">Airlines at this airport</span><div class="airline-picker"><button class="control airline-trigger" id="airline-trigger" type="button" aria-labelledby="airline-label airline-value" aria-describedby="airline-scope-help airline-scope-note" aria-expanded="false" aria-controls="airline-menu" data-testid="button-select-airlines" disabled><span class="picker-value" id="airline-value">Loading airlines…</span><span aria-hidden="true">⌄</span></button><div class="airline-menu" id="airline-menu" hidden role="group" aria-label="Airlines with reported flights for this airport and date range"><p class="airline-menu-note">Choose one or more. No selection includes all available airlines.</p><div id="airline-options"></div></div></div><p class="airline-help" id="airline-scope-help">Only airlines with BTS flights for this airport and date range.</p><p class="airline-scope-note" id="airline-scope-note" role="status" aria-live="polite" hidden></p><button class="clear-airlines" id="clear-airlines" type="button" data-testid="button-clear-airlines" hidden>Clear airline selection</button></div>
           </div>
           <label class="field"><span class="field-label">From</span><input class="control" id="from" type="date" aria-describedby="detail-date-help date-error" data-testid="input-from-date" /></label>
           <label class="field"><span class="field-label">To</span><input class="control" id="to" type="date" aria-describedby="detail-date-help date-error" data-testid="input-to-date" /></label>
@@ -59,27 +59,17 @@
           <p class="date-help" id="detail-date-help" aria-live="polite">Loading BTS date coverage…</p>
           </div>
           <div class="filter-advanced">
-            <button type="button" class="advanced-toggle" id="advanced-toggle" aria-expanded="false" aria-controls="advanced-body" data-testid="button-advanced-controls"><span>Advanced controls <span id="advanced-count"></span></span><span class="advanced-toggle-mark" aria-hidden="true">+</span></button>
+            <button type="button" class="advanced-toggle" id="advanced-toggle" aria-expanded="false" aria-controls="advanced-body" data-testid="button-advanced-controls"><span>Display options</span><span class="advanced-toggle-mark" aria-hidden="true">+</span></button>
             <div class="advanced-body" id="advanced-body" hidden>
               <div class="advanced-column">
-                <div class="advanced-kicker">Data selection / 01</div>
-                <h2 class="advanced-heading">Filter records</h2>
-                <p class="advanced-description">Include only airport · date · airline rows that meet every rule. These rules change the numbers in all five views.</p>
-                <div id="rule-list" class="rule-list"></div>
-                <button type="button" class="add-rule" id="add-rule" data-testid="button-add-metric-rule">+ Add a metric rule</button>
-                <p class="rule-help">Rules use whole, nonnegative values from the original BTS records, before totals are calculated.</p>
-                <p id="rule-error" class="rule-error" role="alert" data-testid="status-rule-error" hidden></p>
-              </div>
-              <div class="advanced-column">
-                <div class="advanced-kicker">Display only / 02</div>
+                <div class="advanced-kicker">Display only</div>
                 <h2 class="advanced-heading">Show metrics</h2>
-                 <p class="advanced-description">Choose snapshot cards and monthly trends for extra raw metrics. This does not change which records are included.</p>
+                <p class="advanced-description">Choose snapshot cards and monthly trends for extra raw metrics. This does not change which records are included.</p>
                 <div id="metric-options" class="metric-options" role="group" aria-label="Summary metric cards"></div>
                 <div class="metric-choice-foot"><span id="metric-choice-count" aria-live="polite"></span><button type="button" class="reset-metrics" id="reset-metrics" data-testid="button-reset-metrics">Restore four defaults</button></div>
-               </div>
-               <div class="advanced-commit"><p>Changes here are a draft until applied. The charts keep showing your last applied selection.</p><button type="button" class="apply-filters" id="apply-filters" data-testid="button-apply-filters">Apply filters</button></div>
+              </div>
+              <div class="advanced-commit"><p>Your metric choices are a draft until applied.</p><button type="button" class="apply-metrics" id="apply-metrics" data-testid="button-apply-metrics">Apply display changes</button></div>
             </div>
-             <p id="advanced-notice" class="advanced-notice" role="alert" tabindex="-1" hidden></p>
           </div>
         </section>
         <div id="active-query" class="active-query" aria-live="polite" hidden></div>

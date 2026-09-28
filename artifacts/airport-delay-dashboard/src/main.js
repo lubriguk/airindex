@@ -35,7 +35,7 @@ const state = {
   airports: { pending: true }, status: { pending: true },
   results: {}, resultsKey: '', requestId: 0, controller: null, metadataId: 0,
   airlineOptions: { pending: true }, airlineRequestId: 0, airlineController: null, airlineLoad: null,
-  airlines: new Set(), rules: [], appliedRules: [], nextRuleId: 1,
+  airlines: new Set(),
   shownMetrics: new Set(DEFAULT_METRICS), appliedMetrics: new Set(DEFAULT_METRICS),
   compare: { pending: true }, compareRequestId: 0, compareController: null, activeView: 'detail',
   nasMeasure: 'perArrival', expandedRankings: { departure: false, nas: false },
@@ -255,7 +255,7 @@ async function loadAvailableAirlines(force = false) {
     invalidateAirlineOptions();
     return false;
   }
-  // Options reflect source coverage, not downstream airline and record rules.
+  // Options reflect source coverage, not the selected airline filter.
   const params = airlineChoiceParams(filterValues());
   const scopeKey = params.toString();
   if (state.airlineLoad?.key === scopeKey) return state.airlineLoad.promise;
@@ -296,20 +296,6 @@ async function loadAvailableAirlines(force = false) {
   }
 }
 
-function renderRules() {
-  $('rule-list').innerHTML = state.rules.length ? state.rules.map((rule) => `
-    <div class="rule-row" data-rule-id="${rule.id}">
-      <select class="control rule-column" aria-label="Metric for rule ${rule.id}" data-testid="select-rule-column-${rule.id}">${RAW_METRICS.map(([key, label]) => `<option value="${key}" ${rule.column === key ? 'selected' : ''}>${label}</option>`).join('')}</select>
-      <select class="control rule-operator" aria-label="Comparison for rule ${rule.id}" data-testid="select-rule-operator-${rule.id}">
-        <option value="gte" ${rule.operator === 'gte' ? 'selected' : ''}>At least (≥)</option><option value="lte" ${rule.operator === 'lte' ? 'selected' : ''}>At most (≤)</option><option value="eq" ${rule.operator === 'eq' ? 'selected' : ''}>Exactly (=)</option>
-      </select>
-      <input class="control rule-value" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(rule.value)}" aria-label="Whole-number threshold for rule ${rule.id}" data-testid="input-rule-value-${rule.id}">
-      <button class="rule-remove" type="button" aria-label="Remove rule ${rule.id}" data-action="remove-rule" data-testid="button-remove-rule-${rule.id}">×</button>
-    </div>`).join('') : '<div class="rule-empty">No record rules. All reported rows are included.</div>';
-  $('add-rule').disabled = state.rules.length >= 30;
-  updateDraftStatus();
-}
-
 function renderMetricChoices() {
   const choices = [
     ...HEADLINE_METRICS.map(([id, label]) => [id, label]),
@@ -322,28 +308,14 @@ function renderMetricChoices() {
 
 function updateDraftStatus() {
   $('metric-choice-count').textContent = `${state.shownMetrics.size} of ${HEADLINE_METRICS.length + RAW_METRICS.length} selected`;
-  const dirty = JSON.stringify(state.rules.map(({ column, operator, value }) => ({ column, operator, value })))
-    !== JSON.stringify(state.appliedRules.map(({ column, operator, value }) => ({ column, operator, value })))
-    || [...state.shownMetrics].sort().join(',') !== [...state.appliedMetrics].sort().join(',');
-  $('apply-filters').textContent = dirty ? 'Apply filters · pending changes' : 'Apply filters';
+  const dirty = [...state.shownMetrics].sort().join(',') !== [...state.appliedMetrics].sort().join(',');
+  $('apply-metrics').textContent = dirty ? 'Apply display changes · pending' : 'Apply display changes';
 }
 
 function updateQueryChips() {
-  const parts = [
-    ...[...state.airlines].sort().map((code) => `<span class="query-chip">Airline ${escapeHtml(airlineLabel(code))}</span>`),
-    ...state.appliedRules.map((rule) => {
-      const label = RAW_METRICS.find(([key]) => key === rule.column)?.[1] || rule.column;
-      const operator = { gte: '≥', lte: '≤', eq: '=' }[rule.operator];
-      return `<span class="query-chip rule-chip">${escapeHtml(label)} ${operator} ${escapeHtml(rule.value)}</span>`;
-    }),
-  ];
+  const parts = [...state.airlines].sort().map((code) => `<span class="query-chip">Airline ${escapeHtml(airlineLabel(code))}</span>`);
   $('active-query').hidden = !parts.length;
   $('active-query').innerHTML = parts.join('');
-  const counts = [
-    state.airlines.size ? `${state.airlines.size} airline${state.airlines.size === 1 ? '' : 's'}` : '',
-    state.appliedRules.length ? `${state.appliedRules.length} rule${state.appliedRules.length === 1 ? '' : 's'}` : '',
-  ].filter(Boolean);
-  $('advanced-count').textContent = counts.length ? `/ ${counts.join(' · ')}` : '';
 }
 
 async function request(path, params, signal) {
@@ -810,24 +782,12 @@ function switchView() {
 function filterValues() {
   return buildDetailParams({
     airport: $('airport').value, from: $('from').value, to: $('to').value,
-    airlines: state.airlines, rules: state.appliedRules,
+    airlines: state.airlines,
   });
 }
 
 function validateDates() {
   return validateDatePair('from', 'to', 'date-error');
-}
-
-function validateRules() {
-  const bad = (value) => !/^(0|[1-9]\d*)$/.test(String(value)) || !Number.isSafeInteger(Number(value));
-  const invalid = state.rules.some(({ value }) => bad(value));
-  $('rule-list').querySelectorAll('.rule-row').forEach((row) => {
-    const rule = state.rules.find((item) => item.id === Number(row.dataset.ruleId));
-    row.querySelector('.rule-value')?.setAttribute('aria-invalid', String(bad(rule?.value)));
-  });
-  $('rule-error').textContent = invalid ? 'Each rule needs a nonnegative whole-number threshold.' : '';
-  $('rule-error').hidden = !invalid;
-  return !invalid;
 }
 
 function collapseAdvanced() {
@@ -836,19 +796,9 @@ function collapseAdvanced() {
   $('advanced-toggle').focus();
 }
 
-function commitDraft() {
-  if (!validateRules()) return false;
-  state.appliedRules = state.rules.map((rule) => ({ ...rule }));
+function applyMetricChoices() {
   state.appliedMetrics = new Set(state.shownMetrics);
-  $('advanced-notice').hidden = true;
   updateDraftStatus();
-  updateQueryChips();
-  return true;
-}
-
-function showDraftError(message) {
-  $('advanced-notice').textContent = message;
-  $('advanced-notice').hidden = false;
 }
 
 function resultFailure(entry, fallback) {
@@ -875,7 +825,7 @@ function renderRawTrends(daily) {
   $('raw-trends').hidden = !selected.length;
   $('raw-trends-scope').textContent = `Monthly totals for ${$('airport').value || 'ATL'} · ${state.airlines.size
     ? [...state.airlines].sort().map(airlineLabel).join(', ')
-    : 'all reporting airlines'}, after applied record rules. Each measure has its own scale; missing observations are not zero.`;
+    : 'all reporting airlines'}. Each measure has its own scale; missing observations are not zero.`;
   const charts = selected.map((entry) => ({ entry, points: monthlyPoints(daily.data ?? [], entry[2]) }));
   $('raw-trends-grid').innerHTML = !selected.length ? '' : daily.invalid
     ? `<div class="raw-trend">${empty(daily.invalid)}</div>`
@@ -937,13 +887,13 @@ function renderResults(invalid = '') {
     : 'Full available period';
   const message = invalid ? invalid
     : state.status.data?.importing ? 'The BTS dataset is still being imported. Figures will appear when records for this selection are available.'
-      : 'No reported departing flights match these airport, date, airline, and record-rule selections. Widen the date range or remove a constraint.';
+      : 'No reported departing flights match this airport, date range, and airline selection. Widen the date range or clear the airline selection.';
   const hasData = !!summary.data && summary.data.flights > 0;
   const stale = (entry) => entry.warning ? `<p class="stale-notice" role="alert">${entry.timeout ? 'This request took longer than 20 seconds; try again.' : 'Refresh failed.'} Showing last retrieved results for this selection. <button type="button" data-action="retry">Try again</button></p>` : '';
 
   $('metrics').innerHTML = invalid ? empty(message) : summary.pending ? loading(140).repeat(Math.max(1, Math.min(4, state.appliedMetrics.size)))
     : summary.error ? empty(resultFailure(summary, 'The airport snapshot could not be retrieved. Check the connection and retry.'), true)
-      : !state.appliedMetrics.size ? '<div class="state-box" role="status" data-testid="status-summary-no-metrics"><span class="state-icon" aria-hidden="true">◌</span><strong>No summary cards selected</strong><p>Open Advanced controls → Show metrics to choose what appears here. The data below is unchanged.</p></div>'
+      : !state.appliedMetrics.size ? '<div class="state-box" role="status" data-testid="status-summary-no-metrics"><span class="state-icon" aria-hidden="true">◌</span><strong>No summary cards selected</strong><p>Open Display options → Show metrics to choose what appears here. The data below is unchanged.</p></div>'
         : !hasData ? empty(message) : `${stale(summary)}${[
           ...HEADLINE_METRICS.filter(([id]) => state.appliedMetrics.has(id)).map(([id, label, key, suffix, note]) =>
             metric(label, `${id === 'scheduled' ? number(summary.data[key]) : one(summary.data[key])}${summary.data[key] == null ? '' : suffix}`, note)),
@@ -987,7 +937,6 @@ function renderResults(invalid = '') {
 }
 
 populateAirports();
-renderRules();
 renderMetricChoices();
 renderAirlines();
 renderResults();
@@ -1011,12 +960,6 @@ document.addEventListener('click', (event) => {
   if (action === 'retry-metadata') loadMetadata();
   if (action === 'retry-faa') loadFaa(true);
   if (action === 'retry-airlines') loadAvailableAirlines(true);
-  if (action === 'remove-rule') {
-    const id = Number(event.target.closest('[data-rule-id]')?.dataset.ruleId);
-    state.rules = state.rules.filter((rule) => rule.id !== id);
-    renderRules();
-    validateRules();
-  }
   if (!event.target.closest('.airline-picker')) {
     $('airline-menu').hidden = true;
     $('airline-trigger').setAttribute('aria-expanded', 'false');
@@ -1067,11 +1010,8 @@ document.addEventListener('keydown', (event) => {
 });
 $('airport').addEventListener('change', () => {
   if ($('advanced-toggle').getAttribute('aria-expanded') === 'true') {
-    if (commitDraft()) collapseAdvanced();
-    else {
-      showDraftError('The new airport is loading with your last applied filters. Correct the rule threshold, then select Apply filters to use your draft.');
-      $('advanced-notice').focus();
-    }
+    applyMetricChoices();
+    collapseAdvanced();
   }
   $('airline-menu').hidden = true;
   $('airline-trigger').setAttribute('aria-expanded', 'false');
@@ -1123,37 +1063,10 @@ $('advanced-toggle').addEventListener('click', () => {
   $('advanced-toggle').setAttribute('aria-expanded', String(expanded));
   $('advanced-body').hidden = !expanded;
 });
-$('apply-filters').addEventListener('click', () => {
-  if (!commitDraft()) {
-    showDraftError('Nothing was applied. Enter a nonnegative whole-number threshold for every rule, then try again.');
-    $('rule-list').querySelector('.rule-value[aria-invalid="true"]')?.focus();
-    return;
-  }
+$('apply-metrics').addEventListener('click', () => {
+  applyMetricChoices();
   collapseAdvanced();
-  loadResults();
-});
-$('add-rule').addEventListener('click', () => {
-  state.rules.push({ id: state.nextRuleId++, column: 'flights', operator: 'gte', value: '0' });
-  renderRules();
-  $('rule-list').lastElementChild?.querySelector('.rule-column')?.focus();
-});
-$('rule-list').addEventListener('change', (event) => {
-  const row = event.target.closest('[data-rule-id]');
-  if (!row) return;
-  const rule = state.rules.find((item) => item.id === Number(row.dataset.ruleId));
-  if (!rule) return;
-  rule.column = row.querySelector('.rule-column').value;
-  rule.operator = row.querySelector('.rule-operator').value;
-  rule.value = row.querySelector('.rule-value').value;
-  validateRules();
-  updateDraftStatus();
-});
-$('rule-list').addEventListener('input', (event) => {
-  if (!event.target.matches('.rule-value')) return;
-  const rule = state.rules.find((item) => item.id === Number(event.target.closest('[data-rule-id]').dataset.ruleId));
-  if (rule) rule.value = event.target.value;
-  validateRules();
-  updateDraftStatus();
+  renderResults();
 });
 $('metric-options').addEventListener('change', (event) => {
   if (event.target.type !== 'checkbox') return;
