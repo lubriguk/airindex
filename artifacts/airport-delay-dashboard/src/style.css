@@ -124,6 +124,7 @@ button:disabled { cursor:not-allowed; }
 .airline-field { min-width:190px; }
 .airline-help,.airline-scope-note { margin:6px 0 0; color:#5d7981; font-size:11px; line-height:1.4; }
 .airline-scope-note { color:#865f30; }
+.clear-airlines { align-self:flex-start; border:0; background:transparent; padding:0; color:#176b76; font:700 11px 'Space Mono',monospace; text-decoration:underline; text-underline-offset:3px; }
 .airline-picker { position:relative; }
 .airline-trigger { text-align:left; display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; }
 .airline-trigger .picker-value { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

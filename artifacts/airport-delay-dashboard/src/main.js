@@ -1,6 +1,7 @@
 import { disposeChart, renderDailyChart, renderWeekdayChart } from './charts.js';
 import { nasRaw, sortDepartures, sortNas } from './comparison-sort.js';
 import { airlineName, airlineLabel } from './airlines.js';
+import { airlineChoiceParams, buildDetailParams, unavailableAirlineCodes } from './filter-scope.js';
 
 const CODES = ['ATL', 'DFW', 'DEN', 'ORD', 'LAX', 'JFK', 'LGA', 'EWR', 'SFO', 'SEA', 'CLT', 'PHX', 'MIA', 'PHL', 'DCA', 'IAD', 'IAH', 'DTW', 'MSP', 'SLC', 'BOS', 'PDX', 'ANC', 'HNL', 'DAL', 'HOU', 'MDW', 'BWI', 'LAS', 'MCO', 'FLL', 'SJU'];
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -205,22 +206,37 @@ function metric(label, value, note) {
   return `<div class="metric"><div class="metric-label">${label}</div><div class="metric-value" data-testid="text-metric-${label.toLowerCase().replace(/\W+/g, '-')}">${escapeHtml(value)}</div><div class="metric-note">${escapeHtml(note)}</div></div>`;
 }
 
+function renderAirlineSelection() {
+  const { airlineOptions, airlines } = state;
+  const selectedCodes = [...airlines].sort();
+  const unavailable = unavailableAirlineCodes(airlines, airlineOptions.data ?? []);
+  const note = $('airline-scope-note');
+  note.textContent = airlineOptions.error
+    ? 'Airline availability could not be checked. Your airline selection remains applied; open the list to retry.'
+    : !airlineOptions.pending && !airlineOptions.invalid && unavailable.length
+      ? `${unavailable.map(airlineLabel).join(', ')} ${unavailable.length === 1 ? 'has' : 'have'} no reported flights for this airport and date range. ${unavailable.length === airlines.size ? 'No flights match the selected airline filter here.' : 'Other selected airlines may still match.'} Your selection remains applied until you clear it.`
+      : '';
+  note.hidden = !note.textContent;
+  $('clear-airlines').hidden = !airlines.size;
+  $('airline-value').textContent = selectedCodes.length ? selectedCodes.map(airlineLabel).join(', ')
+    : airlineOptions.invalid ? 'Choose valid dates'
+      : airlineOptions.pending ? 'Checking available airlines…'
+        : airlineOptions.error ? 'Airlines unavailable — retry'
+          : !airlineOptions.data?.length ? 'No airlines with records' : 'All available airlines';
+  updateQueryChips();
+}
+
 function renderAirlines() {
   const { airlineOptions, airlines } = state;
   const codes = (Array.isArray(airlineOptions.data) ? airlineOptions.data : [])
     .map((item) => item.code);
+  renderAirlineSelection();
   $('airline-trigger').disabled = !!airlineOptions.pending || !!airlineOptions.invalid
     || (!airlineOptions.error && !codes.length);
-  $('airline-value').textContent = airlineOptions.invalid ? 'Choose valid dates'
-    : airlineOptions.pending ? 'Checking available airlines…'
-      : airlineOptions.error ? 'Airlines unavailable — retry'
-        : !codes.length ? 'No airlines with records'
-          : airlines.size ? [...airlines].sort().map(airlineLabel).join(', ') : 'All available airlines';
   $('airline-options').innerHTML = airlineOptions.pending ? loading(90)
     : airlineOptions.error ? `<div class="airline-menu-note" role="alert">Could not load airlines. <button type="button" data-action="retry-airlines" data-testid="button-retry-airlines">Try again</button></div>`
       : !codes.length ? '<p class="airline-menu-note">No airlines have reported flights for this selection.</p>'
         : codes.sort().map((code) => `<label class="airline-option"><input type="checkbox" value="${escapeHtml(code)}" ${airlines.has(code) ? 'checked' : ''} data-testid="checkbox-airline-${escapeHtml(code)}"><span class="airline-name">${escapeHtml(airlineName(code))}</span><span class="airline-code">${escapeHtml(code)}</span></label>`).join('');
-  updateQueryChips();
 }
 
 function invalidateAirlineOptions() {
@@ -228,7 +244,6 @@ function invalidateAirlineOptions() {
   ++state.airlineRequestId;
   state.airlineLoad = null;
   state.airlineOptions = { invalid: true };
-  $('airline-scope-note').hidden = true;
   $('airline-menu').hidden = true;
   $('airline-trigger').setAttribute('aria-expanded', 'false');
   renderAirlines();
@@ -239,11 +254,8 @@ async function loadAvailableAirlines(force = false) {
     invalidateAirlineOptions();
     return false;
   }
-  // Choices follow the airport and dates, but neither the selected airline nor
-  // record rules may remove a carrier: both constraints still apply to results.
-  const params = filterValues();
-  params.delete('airline');
-  params.delete('metric');
+  // Options reflect source coverage, not downstream airline and record rules.
+  const params = airlineChoiceParams(filterValues());
   const scopeKey = params.toString();
   if (state.airlineLoad?.key === scopeKey) return state.airlineLoad.promise;
   if (!force && state.airlineOptions.scopeKey === scopeKey
@@ -265,17 +277,9 @@ async function loadAvailableAirlines(force = false) {
       const available = [...new Map(data
         .filter((item) => /^[A-Z0-9]{2}$/.test(item?.code) && Number(item.flights) > 0)
         .map((item) => [item.code, item])).values()];
-      const codes = new Set(available.map((item) => item.code));
-      const removed = [...state.airlines].filter((code) => !codes.has(code));
-      removed.forEach((code) => state.airlines.delete(code));
-      const note = $('airline-scope-note');
-      note.textContent = removed.length
-        ? `${removed.map(airlineLabel).join(', ')} ${removed.length === 1 ? 'has' : 'have'} no reported flights for this airport and date range and ${removed.length === 1 ? 'was' : 'were'} removed from the airline filter.`
-        : '';
-      note.hidden = !removed.length;
       state.airlineOptions = { data: available, scopeKey };
       renderAirlines();
-      return removed.length > 0;
+      return false;
     } catch {
       if (id !== state.airlineRequestId) return false;
       state.airlineOptions = { error: true, scopeKey };
@@ -803,12 +807,10 @@ function switchView() {
 }
 
 function filterValues() {
-  const params = new URLSearchParams({ airport: $('airport').value });
-  if ($('from').value) params.set('from', $('from').value);
-  if ($('to').value) params.set('to', $('to').value);
-  [...state.airlines].sort().forEach((code) => params.append('airline', code));
-  state.appliedRules.forEach(({ column, operator, value }) => params.append('metric', `${column}:${operator}:${value}`));
-  return params;
+  return buildDetailParams({
+    airport: $('airport').value, from: $('from').value, to: $('to').value,
+    airlines: state.airlines, rules: state.appliedRules,
+  });
 }
 
 function validateDates() {
@@ -1020,9 +1022,7 @@ document.addEventListener('click', (event) => {
   if (action === 'retry-airline-hubs') loadAirlineHubs();
   if (action === 'retry-metadata') loadMetadata();
   if (action === 'retry-faa') loadFaa(true);
-  if (action === 'retry-airlines') loadAvailableAirlines(true).then((changed) => {
-    if (changed) loadResults();
-  });
+  if (action === 'retry-airlines') loadAvailableAirlines(true);
   if (action === 'remove-rule') {
     const id = Number(event.target.closest('[data-rule-id]')?.dataset.ruleId);
     state.rules = state.rules.filter((rule) => rule.id !== id);
@@ -1062,9 +1062,12 @@ $('airline-options').addEventListener('change', (event) => {
   if (event.target.type !== 'checkbox') return;
   if (event.target.checked) state.airlines.add(event.target.value);
   else state.airlines.delete(event.target.value);
-  $('airline-value').textContent = state.airlines.size
-    ? [...state.airlines].sort().map(airlineLabel).join(', ') : 'All available airlines';
-  updateQueryChips();
+  renderAirlineSelection();
+  loadResults();
+});
+$('clear-airlines').addEventListener('click', () => {
+  state.airlines.clear();
+  renderAirlines();
   loadResults();
 });
 document.addEventListener('keydown', (event) => {
@@ -1082,8 +1085,6 @@ $('airport').addEventListener('change', () => {
       $('advanced-notice').focus();
     }
   }
-  state.airlines.clear();
-  $('airline-scope-note').hidden = true;
   $('airline-menu').hidden = true;
   $('airline-trigger').setAttribute('aria-expanded', 'false');
   loadResults();
