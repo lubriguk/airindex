@@ -18,11 +18,11 @@ Each dashboard view is shown twice: **desktop** shows the wide layout, and **mob
 
 **Desktop view (1365 px wide)**
 
-<a href="docs/screenshots/airport-detail.jpg"><img src="docs/screenshots/airport-detail.jpg" alt="Desktop Airport detail view with filters, BTS and FAA panels, snapshot metrics, trend charts, carrier table, and arrival outcomes." width="760"></a>
+<a href="docs/screenshots/airport-detail.jpg"><img src="docs/screenshots/airport-detail.jpg" alt="Desktop Airport detail view with airport, airline, and date filters, Display options, BTS and FAA panels, snapshot metrics, trend charts, carrier table, and arrival outcomes." width="760"></a>
 
 **Mobile view (402 px wide)**
 
-<a href="docs/screenshots/airport-detail-mobile.jpg"><img src="docs/screenshots/airport-detail-mobile.jpg" alt="Mobile Airport detail view with stacked filters, BTS and FAA panels, snapshot metrics, and daily and weekday charts." width="320"></a>
+<a href="docs/screenshots/airport-detail-mobile.jpg"><img src="docs/screenshots/airport-detail-mobile.jpg" alt="Mobile Airport detail view with stacked airport, airline, and date filters, Display options, BTS and FAA panels, snapshot metrics, and daily and weekday charts." width="320"></a>
 
 ### Compare hubs
 
