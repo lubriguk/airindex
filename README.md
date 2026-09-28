@@ -4,6 +4,18 @@ AIR / INDEX is a dashboard for exploring **historical flight reliability at 32 U
 
 The historical charts are about **flights originating at the selected airport**. Their arrival outcomes describe those same flights when they reach their destinations—not all flights arriving at the selected airport. FAA advisories provide operational context, not an explanation of any historical BTS result. This is an analytical dashboard, **not a live flight tracker or a prediction of future delays**.
 
+## Screenshots
+
+These are screenshots of the running app. Flight totals and FAA advisories reflect the data available when the images were captured and may change.
+
+### Airport detail
+
+<a href="docs/screenshots/airport-detail.jpg"><img src="docs/screenshots/airport-detail.jpg" alt="Airport detail view showing the departure-airport and airline controls, BTS coverage, FAA advisories, snapshot metrics, daily and weekday charts, carrier comparison, and arrival outcomes." width="760"></a>
+
+### Compare hubs
+
+<a href="docs/screenshots/compare-hubs.jpg"><img src="docs/screenshots/compare-hubs.jpg" alt="Compare hubs view showing date controls, BTS and FAA status, departure delay rankings, NAS-attributed arrival delay rankings, and the airline-at-its-hubs comparison." width="760"></a>
+
 ## What the dashboard does
 
 ### Airport detail
